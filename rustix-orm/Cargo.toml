@@ -2,5 +2,33 @@
 name = "rustix-orm"
 version = "0.1.0"
 edition = "2021"
+authors = ["Tarun Vishwakarma <vishwakarmatarun121@icloud.com>"]
+description = "A lightweight, intuitive ORM library for Rust"
+license = "MIT"
+repository = "https://github.com/TarunVishwakarma1/rustix-orm"
+readme = "README.md"
+keywords = ["orm", "database", "sql", "postgres", "mysql"]
+categories = ["database"]
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rustix-orm-derive = { path = "../rustix-orm-derive", version = "0.1.0" }
+# For PostgreSQL
+postgres = { version = "0.19", optional = true }
+tokio-postgres = { version = "0.7", optional = true }
+# For MySQL
+mysql = { version = "26.0.0", optional = true }
+# For SQLite
+rusqlite = { version = "0.35.0", optional = true }
+log = "0.4"
+
+[features]
+default = ["postgres-support"]
+postgres-support = ["postgres", "tokio-postgres"]
+mysql-support = ["mysql"]
+sqlite-support = ["rusqlite"]
+full = ["postgres-support", "mysql-support", "sqlite-support"]
+
+[dev-dependencies]
+env_logger = "0.11.8"
