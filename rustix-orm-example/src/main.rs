@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use rustix_orm::{Connection, QueryBuilder, SQLModel, DatabaseType};
+use rustix_orm::{Connection, QueryBuilder, SQLModel, DatabaseType, SqlType};
 use rustix_orm_derive::Model;
 
 #[derive(Debug, Serialize, Deserialize, Model)]
@@ -35,13 +35,13 @@ impl User {
 
 impl Post {
     fn author(&self, conn: &Connection) -> Result<User, rustix_orm::RustixError> {
-        User::find_by_id(conn, self.user_id)
+        User::find_by_id(conn, self.user_id) // will give error for now
     }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Connect to database
-    let conn = Connection::new("postgres://user:password@localhost/database")?;
+    let conn = Connection::new("postgres://postgres:mypass@localhost:5432/postgres")?;
 
     conn.create_table::<User>()?;
     conn.create_table::<Post>()?;
@@ -95,6 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("User posts: {:?}", user_posts);
 
         post1.delete(tx)?;
+
 
         Ok(())
     })?;

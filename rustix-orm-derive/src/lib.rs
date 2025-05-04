@@ -3,7 +3,8 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, Attribute, Data, DeriveInput, Expr, Fields, Ident, Meta, MetaNameValue,
+    parse_macro_input, Attribute, Data, DeriveInput, Expr, Ident, Meta, MetaNameValue,
+    Type, TypePath,
 };
 
 #[proc_macro_derive(Model, attributes(model))]
@@ -33,7 +34,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         let mut has_default = false;
         let mut default_value = String::new();
         let mut is_nullable = false;
+        let mut custom_type = None;
 
+        // Process field attributes
         for attr in &field.attrs {
             if !attr.path().is_ident("model") {
                 continue;
@@ -68,6 +71,12 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                                         default_value = lit_str.value();
                                     }
                                 }
+                            } else if path.is_ident("sql_type") {
+                                if let Expr::Lit(expr_lit) = value {
+                                    if let syn::Lit::Str(lit_str) = expr_lit.lit {
+                                        custom_type = Some(lit_str.value());
+                                    }
+                                }
                             }
                         }
                         _ => {}
@@ -79,12 +88,20 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         let column_name_literal = column_name.clone();
         let default_literal = default_value.clone();
 
+        // Generate SQL type from Rust type
+        let sql_type = if let Some(custom) = custom_type {
+            quote! { SqlType::Custom(#custom.to_string()) }
+        } else {
+            let rust_type = &field.ty;
+            generate_sql_type(rust_type)
+        };
+
         let sql_def = quote! {
             {
                 let mut part = format!("{} {}", #column_name_literal, match db_type {
-                    crate::DatabaseType::PostgreSQL => "INTEGER",
-                    crate::DatabaseType::MySQL => "INT",
-                    crate::DatabaseType::SQLite => "INTEGER",
+                    crate::DatabaseType::PostgreSQL => #sql_type.pg_type().to_string(),
+                    crate::DatabaseType::MySQL => #sql_type.mysql_type().to_string(),
+                    crate::DatabaseType::SQLite => #sql_type.sqlite_type().to_string(),
                 });
 
                 if #is_primary_key {
@@ -143,6 +160,60 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+// Maps Rust types to SQL types
+fn generate_sql_type(rust_type: &Type) -> proc_macro2::TokenStream {
+    match rust_type {
+        Type::Path(TypePath { path, .. }) => {
+            let segment = path.segments.last().unwrap();
+            let ident = &segment.ident;
+            let type_name = ident.to_string();
+            
+            if type_name == "Option" {
+                // Handle Option<T>
+                if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                    if let Some(arg) = args.args.first() {
+                        if let syn::GenericArgument::Type(inner_type) = arg {
+                            return generate_sql_type(inner_type);
+                        }
+                    }
+                }
+                quote! { SqlType::Text }
+            } else {
+                match type_name.as_str() {
+                    "i8" | "i16" | "i32" | "u8" | "u16" | "u32" => quote! { SqlType::Integer },
+                    "i64" | "u64" => quote! { SqlType::BigInt },
+                    "f32" | "f64" => quote! { SqlType::Float },
+                    "bool" => quote! { SqlType::Boolean },
+                    "String" | "str" => quote! { SqlType::Text },
+                    "Vec" => {
+                        // Check if it's Vec<u8> for binary data
+                        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                            if let Some(arg) = args.args.first() {
+                                if let syn::GenericArgument::Type(Type::Path(TypePath { path, .. })) = arg {
+                                    if let Some(seg) = path.segments.last() {
+                                        if seg.ident == "u8" {
+                                            return quote! { SqlType::Blob };
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        quote! { SqlType::Blob }
+                    },
+                    // Add more type mappings as needed
+                    "NaiveDate" => quote! { SqlType::Date },
+                    "NaiveTime" => quote! { SqlType::Time },
+                    "NaiveDateTime" | "DateTime" => quote! { SqlType::DateTime },
+                    "Uuid" => quote! { SqlType::Text },
+                    _ => quote! { SqlType::Text }, // Default to TEXT for unknown types
+                }
+            }
+        }
+        _ => quote! { SqlType::Text }, // Default for complex types
+    }
+}
+
+// Add a helper enum for SQL types
 fn extract_table_name(attrs: &[Attribute]) -> Option<String> {
     for attr in attrs {
         if !attr.path().is_ident("model") {
