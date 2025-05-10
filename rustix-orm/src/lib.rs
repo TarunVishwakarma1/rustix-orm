@@ -12,4 +12,9 @@ pub use query_builder::QueryBuilder;
 pub use error::RustixError;
 pub use migrations::{Migration, MigrationManager};
 pub use sql_types::SqlType;
-pub use transaction_manager::{ MySQLTransactionExecutor,SQLiteTransactionExecutor,PostgresTransactionExecutor };
+#[cfg(feature = "mysql")]
+pub use transaction_manager::MySQLTransactionExecutor;
+#[cfg(feature = "rusqlite")]
+pub use transaction_manager::SQLiteTransactionExecutor;
+#[cfg(feature = "postgres")]
+pub use transaction_manager::PostgresTransactionExecutor;

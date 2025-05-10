@@ -2,13 +2,13 @@ use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use crate::error::RustixError;
 use crate::model::SQLModel;
-use crate::transaction_manager::{
-    TransactionExecutor,
-    run_postgres_transaction, run_mysql_transaction, run_sqlite_transaction,
-    tokio_postgres,
-    mysql,
-    rusqlite,
-};
+use crate::transaction_manager::TransactionExecutor;
+#[cfg(feature = "mysql")]
+use crate::transaction_manager::{run_mysql_transaction, mysql};
+#[cfg(feature = "rusqlite")]
+use crate::transaction_manager::{run_sqlite_transaction, rusqlite};
+#[cfg(feature = "postgres")]
+use crate::transaction_manager::{run_postgres_transaction, tokio_postgres};
 use tokio::runtime::Runtime;
 
 #[cfg(feature = "mysql")]
@@ -153,7 +153,7 @@ impl Connection {
                     .get_conn()
                     .map_err(|e| RustixError::QueryError(e.to_string()))?;
                 // TODO: Proper parameter binding
-                let result = conn
+                let _result = conn
                     .exec_drop(sql, ())
                     .map_err(|e| RustixError::QueryError(e.to_string()))?;
                 Ok(1) // MySQL doesn't return rows affected reliably for exec_drop
@@ -179,7 +179,7 @@ impl Connection {
         }
     }
 
-    pub fn query_raw<T>(&self, sql: &str, params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
+    pub fn query_raw<T>(&self, sql: &str, _params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
     where
         T: for<'de> serde::Deserialize<'de>,
     {
