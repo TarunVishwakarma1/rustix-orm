@@ -1,105 +1,66 @@
 use serde::{Deserialize, Serialize};
-use rustix_orm::{Connection, QueryBuilder, SQLModel, DatabaseType, SqlType};
+use rustix_orm::{Connection, SQLModel, SqlType};
 use rustix_orm_derive::Model;
 
 #[derive(Debug, Serialize, Deserialize, Model)]
 #[model(table = "users")]
-struct User {
+pub struct User{
     #[model(primary_key)]
-    id: Option<i32>,
-    name: String,
-    email: String,
-    age: i32,
+    pub id: Option<i32>,
+    
+    #[model(column = "full_name")]
+    pub name: String,
+    
+    #[model(nullable)]
+    pub email: Option<String>,
+    
+    #[model(default = "CURRENT_TIMESTAMP")]
+    pub created_at: String,
+    
+    #[model(sql_type = "VARCHAR(100)")]
+    pub password_hash: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Model)]
-#[model(table = "posts")]
-struct Post {
-    #[model(primary_key)]
-    id: Option<i32>,
-    title: String,
-    content: String,
-    user_id: i32,
-    #[model(default = "false")]
-    published: bool,
-}
-
-impl User {
-    fn posts(&self, conn: &Connection) -> Result<Vec<Post>, rustix_orm::RustixError> {
-        QueryBuilder::new()
-            .filter("user_id = ?", &[self.id.unwrap()])
-            .order_by("id", false)
-            .find_all::<Post>(conn)
-    }
-}
-
-impl Post {
-    fn author(&self, conn: &Connection) -> Result<User, rustix_orm::RustixError> {
-        User::find_by_id(conn, self.user_id) // will give error for now
-    }
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Connect to database
+// Example of using the generated methods
+fn main() -> Result<(), rustix_orm::RustixError> {
+    // Create a database connection
     let conn = Connection::new("postgres://postgres:mypass@localhost:5432/postgres")?;
+    // Create the users table
+    conn.execute(&User::create_table_sql(&conn.get_db_type()), &[])?; //This works
+    // Create a new user
+    let mut user = User {
+        id: None,
+        name: "John Doe".to_string(),
+        email: Some("john@example.com".to_string()),
+        created_at: "2023-01-01 00:00:00".to_string(),
+        password_hash: "hashed_password".to_string(),
+    };
+    // Save the user to the database
+    // user.save(&conn)?;
 
-    conn.create_table::<User>()?;
-    conn.create_table::<Post>()?;
-
-    conn.transaction(|tx| {
-
-        let mut user = User {
-            id: None,
-            name: "John Doe".to_string(),
-            email: "john@example.com".to_string(),
-            age: 30,
-        };
-        user.save(tx)?;
-        println!("User created with ID: {:?}", user.id);
-
-        let mut post1 = Post {
-            id: None,
-            title: "First Post".to_string(),
-            content: "Hello, world!".to_string(),
-            user_id: user.id.unwrap(),
-            published: true,
-        };
-        post1.save(tx)?;
-
-        let mut post2 = Post {
-            id: None,
-            title: "Draft Post".to_string(),
-            content: "Work in progress...".to_string(),
-            user_id: user.id.unwrap(),
-            published: false,
-        };
-        post2.save(tx)?;
-
-        post2.title = "Updated Draft Post".to_string();
-        post2.save(tx)?;
-
-        let published_posts = QueryBuilder::new()
-            .filter("published = ?", &[&true])
-            .find_all::<Post>(tx)?;
-
-        println!("Published posts: {:?}", published_posts);
-
-        let adult_users = QueryBuilder::new()
-            .filter("age > ?", &[&25])
-            .order_by("name", true)
-            .find_all::<User>(tx)?;
-
-        println!("Adult users: {:?}", adult_users);
-
-        let user_posts = user.posts(tx)?;
-        println!("User posts: {:?}", user_posts);
-
-        post1.delete(tx)?;
-
-
-        Ok(())
-    })?;
-
-    println!("All operations completed successfully!");
+    // println!("User saved with ID: {:?}", user.primary_key_value());
+    // // Find the user by ID
+    // let found_user = User::find_by_id(&conn, user.primary_key_value().unwrap())?;
+    // println!("Found user: {:?}", found_user);
+    
+    // // Find all users
+    // let all_users = User::find_all(&conn)?;
+    // println!("All users: {:?}", all_users);
+    
+    // // Find users by email
+    // let users_by_email = User::find_by(&conn, "email", &"john@example.com")?;
+    // println!("Users with email john@example.com: {:?}", users_by_email);
+    
+    // // Update the user
+    // user.name = "Jane Doe".to_string();
+    // user.save(&conn)?;
+    
+    // // Delete the user
+    // user.delete(&conn)?;
+    
+    // // Count users
+    // let count = User::count(&conn)?;
+    // println!("User count: {}", count);
+    
     Ok(())
 }

@@ -1,5 +1,3 @@
-extern crate proc_macro;
-
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
@@ -25,9 +23,15 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
 
     let mut primary_key_field: Option<Ident> = None;
     let mut field_sql_defs = Vec::new();
+    let mut field_names = Vec::new();
+    let mut field_values = Vec::new();
+    let mut field_from_row = Vec::new();
+    let mut field_idents = Vec::new();
+    let mut field_str_names = Vec::new();
 
     for field in fields {
         let field_ident = field.ident.clone().unwrap();
+        let field_ident_str = field_ident.to_string();
         let field_name = field_ident.to_string();
         let mut column_name = field_name.clone();
         let mut is_primary_key = false;
@@ -35,6 +39,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         let mut default_value = String::new();
         let mut is_nullable = false;
         let mut custom_type = None;
+
+        field_idents.push(field_ident.clone());
+        field_str_names.push(field_ident_str);
 
         // Process field attributes
         for attr in &field.attrs {
@@ -85,6 +92,19 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
             }
         }
 
+        field_names.push(column_name.clone());
+
+        // Generate field values extraction
+        let field_value = quote! {
+            Box::new(format!("{:?}", self.#field_ident)) as Box<dyn std::fmt::Debug>
+        };
+        field_values.push(field_value);
+
+        // Generate from_row conversion for this field
+        let is_option = is_nullable || is_option_type(&field.ty);
+        let field_from_json = generate_from_json(&field_ident, &column_name, &field.ty, is_option);
+        field_from_row.push(field_from_json);
+
         let column_name_literal = column_name.clone();
         let default_literal = default_value.clone();
 
@@ -99,9 +119,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         let sql_def = quote! {
             {
                 let mut part = format!("{} {}", #column_name_literal, match db_type {
-                    crate::DatabaseType::PostgreSQL => #sql_type.pg_type().to_string(),
-                    crate::DatabaseType::MySQL => #sql_type.mysql_type().to_string(),
-                    crate::DatabaseType::SQLite => #sql_type.sqlite_type().to_string(),
+                    rustix_orm::DatabaseType::PostgreSQL => #sql_type.pg_type().to_string(), // Changed
+                    rustix_orm::DatabaseType::MySQL => #sql_type.mysql_type().to_string(),     // Changed
+                    rustix_orm::DatabaseType::SQLite => #sql_type.sqlite_type().to_string(),    // Changed
                 });
 
                 if #is_primary_key {
@@ -125,6 +145,12 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
 
     let pk_ident = primary_key_field.unwrap_or_else(|| Ident::new("id", name.span()));
 
+    // Convert field_names to static string literals
+    let field_name_literals: Vec<_> = field_names.iter().map(|name| {
+        let name_str = name.as_str();
+        quote! { #name_str }
+    }).collect();
+
     let expanded = quote! {
         impl SQLModel for #name {
             fn table_name() -> String {
@@ -143,8 +169,8 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                 self.#pk_ident = Some(id);
             }
 
-            fn create_table_sql(db_type: &crate::DatabaseType) -> String {
-                let mut sql = format!("CREATE TABLE IF NOT EXISTS {} (", Self::table_name());
+            fn create_table_sql(db_type: &rustix_orm::DatabaseType) -> String { // Changed
+                let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", Self::table_name());
 
                 let fields = vec![
                     #(#field_sql_defs),*
@@ -154,10 +180,83 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                 sql.push(')');
                 sql
             }
+
+            fn field_names() -> Vec<&'static str> {
+                vec![#(#field_name_literals),*]
+            }
+
+            fn field_values(&self) -> Vec<Box<dyn std::fmt::Debug>> {
+                vec![
+                    #(#field_values),*
+                ]
+            }
+
+            fn from_row(row: &serde_json::Value) -> Result<Self, rustix_orm::RustixError> { // Changed
+                if !row.is_object() {
+                    return Err(rustix_orm::RustixError::DeserializationError( // Changed
+                        "Row is not a JSON object".to_string()
+                    ));
+                }
+
+                let obj = row.as_object().unwrap();
+
+                Ok(Self {
+                    #(#field_from_row),*
+                })
+            }
         }
     };
 
     TokenStream::from(expanded)
+}
+
+// Helper function to determine if a type is an Option<T>
+fn is_option_type(ty: &Type) -> bool {
+    if let Type::Path(TypePath { path, .. }) = ty {
+        if let Some(segment) = path.segments.last() {
+            return segment.ident == "Option";
+        }
+    }
+    false
+}
+
+// Generate code to extract a field value from a JSON object
+fn generate_from_json(field_ident: &Ident, column_name: &str, field_type: &Type, is_optional: bool) -> proc_macro2::TokenStream {
+    let column_literal = column_name;
+
+    if is_optional {
+        quote! {
+            #field_ident: if let Some(val) = obj.get(#column_literal) {
+                if val.is_null() {
+                    None
+                } else {
+                    match serde_json::from_value(val.clone()) {
+                        Ok(v) => Some(v),
+                        Err(e) => return Err(rustix_orm::RustixError::DeserializationError(
+                            format!("Failed to deserialize field {}: {}", #column_literal, e)
+                        )),
+                    }
+                }
+            } else {
+                None
+            }
+        }
+    } else {
+        quote! {
+            #field_ident: if let Some(val) = obj.get(#column_literal) {
+                match serde_json::from_value(val.clone()) {
+                    Ok(v) => v,
+                    Err(e) => return Err(rustix_orm::RustixError::DeserializationError(
+                        format!("Failed to deserialize field {}: {}", #column_literal, e)
+                    )),
+                }
+            } else {
+                return Err(rustix_orm::RustixError::DeserializationError(
+                    format!("Missing required field: {}", #column_literal)
+                ));
+            }
+        }
+    }
 }
 
 // Maps Rust types to SQL types
@@ -167,7 +266,7 @@ fn generate_sql_type(rust_type: &Type) -> proc_macro2::TokenStream {
             let segment = path.segments.last().unwrap();
             let ident = &segment.ident;
             let type_name = ident.to_string();
-            
+
             if type_name == "Option" {
                 // Handle Option<T>
                 if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
@@ -213,7 +312,7 @@ fn generate_sql_type(rust_type: &Type) -> proc_macro2::TokenStream {
     }
 }
 
-// Add a helper enum for SQL types
+// Extract table name from attributes
 fn extract_table_name(attrs: &[Attribute]) -> Option<String> {
     for attr in attrs {
         if !attr.path().is_ident("model") {

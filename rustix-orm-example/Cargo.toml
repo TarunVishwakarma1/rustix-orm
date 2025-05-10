@@ -7,3 +7,4 @@ edition = "2021"
 rustix-orm = { path = "../rustix-orm", features = ["full"] }
 rustix-orm-derive = { path = "../rustix-orm-derive", version = "0.1.0"}
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.140"
