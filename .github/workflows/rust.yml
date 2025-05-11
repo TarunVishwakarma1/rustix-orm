@@ -19,21 +19,27 @@ jobs:
         image: postgres:latest
         env:
           POSTGRES_USER: postgres # Or your preferred user
-          POSTGRES_PASSWORD: mypassZ # Use a strong password or GitHub Secrets in a real scenario
+          POSTGRES_PASSWORD: mypass # Use a strong password or GitHub Secrets in a real scenario
           POSTGRES_DB: postgres # Or your preferred database name
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U $$POSTGRES_USER" # Use $$ to escape $ in YAML
+          --health-cmd "pg_isready -U $$POSTGRES_USER"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
-
     - name: Build
       run: cargo build --verbose
 
     - name: Run tests
       run: cargo test --verbose
+      env:
+        # Pass database connection details as environment variables to your tests
+        PGUSER: ${{ services.postgres.env.POSTGRES_USER }}
+        PGPASSWORD: ${{ services.postgres.env.POSTGRES_PASSWORD }}
+        PGDATABASE: ${{ services.postgres.env.POSTGRES_DB }}
+        PGHOST: postgres # Use the service name as the hostname
+        PGPORT: 5432
