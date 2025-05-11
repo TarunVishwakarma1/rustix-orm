@@ -1,4 +1,4 @@
-/// The main library module for the Rustix ORM.
+/// The main library module for the Rusticx ORM.
 ///
 /// This module provides the core functionality for interacting with various databases
 /// through a unified interface. It includes connection management, error handling,
@@ -15,7 +15,7 @@ mod transaction_manager;
 pub use connection::{Connection, DatabaseType}; // Re-exporting connection-related types
 pub use model::{SQLModel, ModelAttribute, ToSqlConvert}; // Re-exporting model-related types
 // pub use query_builder::QueryBuilder;
-pub use error::RustixError; // Re-exporting the RustixError type for error handling
+pub use error::RusticxError; // Re-exporting the RusticxError type for error handling
 // pub use migrations::{Migration, MigrationManager};
 pub use sql_types::SqlType; // Re-exporting SQL type definitions
 #[cfg(feature = "mysql")]

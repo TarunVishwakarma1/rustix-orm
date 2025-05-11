@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use rustix_orm::{Connection, SQLModel, SqlType, RustixError}; // Import RustixError and DatabaseType
-use rustix_orm_derive::Model;
+use rusticx::{Connection, SQLModel, SqlType, RusticxError}; // Import RusticxError and DatabaseType
+use rusticx_derive::Model;
 use chrono::NaiveDateTime; // Assuming created_at uses this type
 
 /// Represents a user in the database.
@@ -37,7 +37,7 @@ pub struct User {
 // If your model.rs only has #[cfg(feature="postgres")] impl<T: PostgresToSql + ...> ToSqlConvert for T,
 // and NaiveDateTime implements PostgresToSql, it should work.
 
-fn main() -> Result<(), rustix_orm::RustixError> {
+fn main() -> Result<(), rusticx::RusticxError> {
     println!("Attempting to connect to database...");
     // Make sure your PostgreSQL container is running and accessible
     let conn = Connection::new("postgres://postgres:mypass@localhost:5432/postgres")?;
@@ -93,13 +93,13 @@ fn main() -> Result<(), rustix_orm::RustixError> {
     println!("\n--- Demonstrating find_by_id ---");
     match User::find_by_id(&conn, alice_id) {
         Ok(found_user) => println!("Found user by ID {}: {:?}", alice_id, found_user),
-        Err(RustixError::NotFound(msg)) => println!("find_by_id error: {}", msg),
+        Err(RusticxError::NotFound(msg)) => println!("find_by_id error: {}", msg),
         Err(e) => println!("find_by_id query error: {}", e),
     }
      // Try finding a non-existent ID to show NotFound error
     match User::find_by_id(&conn, 9999) {
         Ok(found_user) => println!("Found user by ID 9999 (unexpected): {:?}", found_user),
-        Err(RustixError::NotFound(msg)) => println!("find_by_id 9999 error (expected NotFound): {}", msg),
+        Err(RusticxError::NotFound(msg)) => println!("find_by_id 9999 error (expected NotFound): {}", msg),
         Err(e) => println!("find_by_id 9999 query error: {}", e),
     }
 
@@ -163,12 +163,12 @@ fn main() -> Result<(), rustix_orm::RustixError> {
      println!("\nVerifying deletions...");
     match User::find_by_id(&conn, alice_id) {
         Ok(found_user) => println!("User with ID {} still found (unexpected): {:?}", alice_id, found_user),
-        Err(RustixError::NotFound(msg)) => println!("User with ID {} not found (expected NotFound): {}", alice_id, msg),
+        Err(RusticxError::NotFound(msg)) => println!("User with ID {} not found (expected NotFound): {}", alice_id, msg),
         Err(e) => println!("Verification find_by_id query error: {}", e),
     }
      match User::find_by_id(&conn, bob_id) {
         Ok(found_user) => println!("User with ID {} still found (unexpected): {:?}", bob_id, found_user),
-        Err(RustixError::NotFound(msg)) => println!("User with ID {} not found (expected NotFound): {}", bob_id, msg),
+        Err(RusticxError::NotFound(msg)) => println!("User with ID {} not found (expected NotFound): {}", bob_id, msg),
         Err(e) => println!("Verification find_by_id query error: {}", e),
     }
 

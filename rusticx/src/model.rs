@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use crate::connection::{Connection, DatabaseType};
-use crate::error::RustixError;
+use crate::error::RusticxError;
 
 
 #[cfg(feature = "rusqlite")]
@@ -54,7 +54,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
     fn to_sql_field_values(&self) -> Vec<Box<dyn ToSqlConvert>>;
 
     /// Converts a database row represented as a JSON Value (Map) into a model instance.
-    fn from_row(row: &serde_json::Value) -> Result<Self, RustixError>;
+    fn from_row(row: &serde_json::Value) -> Result<Self, RusticxError>;
 
     /// Inserts a new record into the database table based on the model instance.
     ///
@@ -62,7 +62,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
     /// 1. Including the primary key in the INSERT if the user provided a value
     /// 2. Excluding the primary key if it's None, letting the database generate it
     /// 3. Setting the generated primary key on the model instance after insertion
-    fn insert(&mut self, conn: &Connection) -> Result<(), RustixError> {
+    fn insert(&mut self, conn: &Connection) -> Result<(), RusticxError> {
         let fields = Self::field_names();
         let primary_key_field = Self::primary_key_field();
         let field_values = self.to_sql_field_values();
@@ -91,7 +91,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
         
         // Skip the insert if there are no fields to insert
         if insert_fields.is_empty() {
-            return Err(RustixError::QueryError("No fields to insert".to_string()));
+            return Err(RusticxError::QueryError("No fields to insert".to_string()));
         }
         
         // Generate SQL placeholders based on the database type
@@ -115,7 +115,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
                 if let Some(sql_convert) = field_values[idx].as_ref_postgres() {
                     params.push(sql_convert);
                 } else {
-                    return Err(RustixError::QueryError(format!(
+                    return Err(RusticxError::QueryError(format!(
                         "Failed to convert field '{}' value to database-compatible type",
                         field_name
                     )));
@@ -144,7 +144,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
                 if let Some(id_row) = ids.first() {
                     self.set_primary_key(id_row.id as i32);
                 } else {
-                    return Err(RustixError::QueryError("Failed to retrieve last inserted ID".to_string()));
+                    return Err(RusticxError::QueryError("Failed to retrieve last inserted ID".to_string()));
                 }
             }
         }
@@ -155,9 +155,9 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
     /// Updates an existing record in the database table based on the model instance's primary key.
     ///
     /// Requires the model instance to have a primary key value set.
-    fn update(&self, conn: &Connection) -> Result<(), RustixError> {
+    fn update(&self, conn: &Connection) -> Result<(), RusticxError> {
         let id = self.primary_key_value().ok_or_else(|| {
-            RustixError::QueryError("Cannot update a model without a primary key value".to_string())
+            RusticxError::QueryError("Cannot update a model without a primary key value".to_string())
         })?;
 
         let fields = Self::field_names();
@@ -202,7 +202,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
                     params.push(sql_value);
                 } else {
                     // This error indicates a failure in the model's to_sql_field_values implementation
-                    return Err(RustixError::QueryError(format!("Failed to convert field '{}' value to database-compatible type", field)));
+                    return Err(RusticxError::QueryError(format!("Failed to convert field '{}' value to database-compatible type", field)));
                 }
             }
         }
@@ -219,8 +219,8 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
     }
 
     /// Finds a single record by its primary key.
-    /// Returns `Ok(model)` if found, `Err(RustixError::NotFound)` if not found.
-    fn find_by_id(conn: &Connection, id: i32) -> Result<Self, RustixError> {
+    /// Returns `Ok(model)` if found, `Err(RusticxError::NotFound)` if not found.
+    fn find_by_id(conn: &Connection, id: i32) -> Result<Self, RusticxError> {
         let primary_key_field = Self::primary_key_field();
         // Use database-specific placeholder syntax
         #[cfg(feature = "postgres")]
@@ -251,7 +251,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
                     Ok(model)
                 } else {
                     // No rows returned, record not found
-                    Err(RustixError::NotFound(format!("{} with id {} not found", Self::table_name(), id)))
+                    Err(RusticxError::NotFound(format!("{} with id {} not found", Self::table_name(), id)))
                 }
             },
             Err(e) => {
@@ -266,14 +266,14 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
                     Self::from_row(&serde_json::Value::Object(row.clone()))
                 } else {
                     // Still no rows in fallback, record not found
-                    Err(RustixError::NotFound(format!("{} with id {} not found", Self::table_name(), id)))
+                    Err(RusticxError::NotFound(format!("{} with id {} not found", Self::table_name(), id)))
                 }
             }
         }
     }
 
     /// Finds all records in the table.
-    fn find_all(conn: &Connection) -> Result<Vec<Self>, RustixError> {
+    fn find_all(conn: &Connection) -> Result<Vec<Self>, RusticxError> {
         let sql = format!("SELECT * FROM {}", Self::table_name());
         // No parameters for SELECT all
         let params: &[&(dyn ToSql + Sync + 'static)] = &[];
@@ -307,16 +307,16 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
     /// Deletes the current record from the database.
     ///
     /// Requires the model instance to have a primary key value set.
-    fn delete(&self, conn: &Connection) -> Result<(), RustixError> {
+    fn delete(&self, conn: &Connection) -> Result<(), RusticxError> {
         if let Some(id) = self.primary_key_value() {
             Self::delete_by_id(conn, id)
         } else {
-            Err(RustixError::ValidationError("Cannot delete a record without a primary key value".to_string()))
+            Err(RusticxError::ValidationError("Cannot delete a record without a primary key value".to_string()))
         }
     }
 
     /// Deletes a record by its primary key.
-    fn delete_by_id(conn: &Connection, id: i32) -> Result<(), RustixError> {
+    fn delete_by_id(conn: &Connection, id: i32) -> Result<(), RusticxError> {
         let primary_key_field = Self::primary_key_field();
         // Use database-specific placeholder syntax
         #[cfg(feature = "postgres")]
@@ -350,10 +350,10 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
         conn: &Connection,
         field: &str,
         value: &T,
-    ) -> Result<Vec<Self>, RustixError> {
+    ) -> Result<Vec<Self>, RusticxError> {
         // Basic validation for field name (could be more robust)
         if field.contains('"') || field.contains('\'') || field.contains(' ') {
-             return Err(RustixError::QueryError(format!("Invalid characters in field name: {}", field)));
+             return Err(RusticxError::QueryError(format!("Invalid characters in field name: {}", field)));
         }
 
         // Use database-specific placeholder syntax
@@ -389,7 +389,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
              params.push(v as &(dyn ToSql + Sync + 'static));
         // Add more type checks for other supported types (e.g., dates, byte arrays)
         } else {
-            return Err(RustixError::QueryError(format!("Unsupported parameter type for field '{}'", field)));
+            return Err(RusticxError::QueryError(format!("Unsupported parameter type for field '{}'", field)));
         }
 
 
@@ -418,7 +418,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
     ///
     /// Use with caution, as raw SQL can be less safe if not carefully constructed.
     /// Parameters should be provided as a slice of references to types implementing `ToSql + Sync + 'static`.
-    fn find_with_sql(conn: &Connection, sql: &str, params: &[&(dyn ToSql + Sync + 'static)]) -> Result<Vec<Self>, RustixError> {
+    fn find_with_sql(conn: &Connection, sql: &str, params: &[&(dyn ToSql + Sync + 'static)]) -> Result<Vec<Self>, RusticxError> {
         // Attempt direct deserialization first
         let direct_results: Result<Vec<Self>, _> = conn.query_raw(sql, params);
 
@@ -441,7 +441,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
     }
 
     /// Counts the number of records in the table.
-    fn count(conn: &Connection) -> Result<i64, RustixError> {
+    fn count(conn: &Connection) -> Result<i64, RusticxError> {
         let sql = format!("SELECT COUNT(*) as count FROM {}", Self::table_name());
 
         #[derive(Deserialize, Debug)]

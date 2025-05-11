@@ -1,6 +1,6 @@
-# Rustix ORM
+# Rusticx ORM
 
-Rustix ORM is a lightweight and intuitive Object-Relational Mapping (ORM) library for Rust, designed to simplify database interactions. This project supports multiple databases, including PostgreSQL, MySQL, and SQLite.
+Rusticx ORM is a lightweight and intuitive Object-Relational Mapping (ORM) library for Rust, designed to simplify database interactions. This project supports multiple databases, including PostgreSQL, MySQL, and SQLite.
 
 ## Table of Contents
 
@@ -21,24 +21,24 @@ Rustix ORM is a lightweight and intuitive Object-Relational Mapping (ORM) librar
 
 ## Installation
 
-To use Rustix ORM in your project, add the following to your `Cargo.toml`:
+To use Rusticx ORM in your project, add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustix-orm = { path = "path/to/rustix-orm" }
-rustix-orm-derive = { path = "path/to/rustix-orm-derive" }
+rusticx = { path = "path/to/rusticx" }
+rusticx_derive = { path = "path/to/rusticx_derive" }
 ```
 
-Make sure to replace `path/to/` with the actual path to the `rustix-orm` and `rustix-orm-derive` directories.
+Make sure to replace `path/to/` with the actual path to the `rusticx` and `rusticx_derive` directories.
 
 ## Usage
 
-To get started with Rustix ORM, follow these steps:
+To get started with Rusticx ORM, follow these steps:
 
 1. **Create a Connection**: Establish a connection to your database.
 
 ```rust
-use rustix_orm::Connection;
+use rusticx::Connection;
 
 let conn = Connection::new("postgres://username:password@localhost:5432/database_name").unwrap();
 ```
@@ -46,7 +46,7 @@ let conn = Connection::new("postgres://username:password@localhost:5432/database
 2. **Define Your Model**: Create a struct that represents your database table.
 
 ```rust
-use rustix_orm_derive::Model;
+use rusticx_derive::Model;
 
 #[derive(Debug, Model)]
 #[model(table_name = "students")]

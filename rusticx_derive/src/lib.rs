@@ -122,7 +122,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
 
         // Generate field values extraction for ToSql
         let field_to_sql_value = quote! {
-            Box::new(self.#field_ident.clone()) as Box<dyn rustix_orm::ToSqlConvert>
+            Box::new(self.#field_ident.clone()) as Box<dyn rusticx::ToSqlConvert>
         };
         field_to_sql_values.push(field_to_sql_value);
 
@@ -140,9 +140,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         let sql_def = quote! {
             {
                 let mut part = format!("{} {}", #column_name, match db_type {
-                    rustix_orm::DatabaseType::PostgreSQL => #sql_type.pg_type().to_string(),
-                    rustix_orm::DatabaseType::MySQL => #sql_type.mysql_type().to_string(),
-                    rustix_orm::DatabaseType::SQLite => #sql_type.sqlite_type().to_string(),
+                    rusticx::DatabaseType::PostgreSQL => #sql_type.pg_type().to_string(),
+                    rusticx::DatabaseType::MySQL => #sql_type.mysql_type().to_string(),
+                    rusticx::DatabaseType::SQLite => #sql_type.sqlite_type().to_string(),
                 });
 
                 if #is_primary_key {
@@ -151,9 +151,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                     // Add auto-increment syntax based on database type
                     if #auto_increment {
                         match db_type {
-                            rustix_orm::DatabaseType::PostgreSQL => part.push_str(" GENERATED ALWAYS AS IDENTITY"),
-                            rustix_orm::DatabaseType::MySQL => part.push_str(" AUTO_INCREMENT"),
-                            rustix_orm::DatabaseType::SQLite => part.push_str(" AUTOINCREMENT"),
+                            rusticx::DatabaseType::PostgreSQL => part.push_str(" GENERATED ALWAYS AS IDENTITY"),
+                            rusticx::DatabaseType::MySQL => part.push_str(" AUTO_INCREMENT"),
+                            rusticx::DatabaseType::SQLite => part.push_str(" AUTOINCREMENT"),
                         }
                     }
                 }
@@ -167,9 +167,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                 } else if #uuid_pk && #is_primary_key {
                     // Add UUID default function based on database type
                     match db_type {
-                        rustix_orm::DatabaseType::PostgreSQL => part.push_str(" DEFAULT gen_random_uuid()"),
-                        rustix_orm::DatabaseType::MySQL => part.push_str(" DEFAULT (UUID())"),
-                        rustix_orm::DatabaseType::SQLite => part.push_str(" DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(6))))"),
+                        rusticx::DatabaseType::PostgreSQL => part.push_str(" DEFAULT gen_random_uuid()"),
+                        rusticx::DatabaseType::MySQL => part.push_str(" DEFAULT (UUID())"),
+                        rusticx::DatabaseType::SQLite => part.push_str(" DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(6))))"),
                     };
                 }
 
@@ -238,7 +238,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                 self.#pk_ident = Some(id);
             }
 
-            fn create_table_sql(db_type: &rustix_orm::DatabaseType) -> String {
+            fn create_table_sql(db_type: &rusticx::DatabaseType) -> String {
                 let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", Self::table_name());
                 let fields = vec![#(#field_sql_defs),*];
                 sql.push_str(&fields.join(", "));
@@ -250,13 +250,13 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                 vec![#(#field_name_literals),*]
             }
 
-            fn to_sql_field_values(&self) -> Vec<Box<dyn rustix_orm::ToSqlConvert>> {
+            fn to_sql_field_values(&self) -> Vec<Box<dyn rusticx::ToSqlConvert>> {
                 vec![#(#field_to_sql_values),*]
             }
 
-            fn from_row(row: &serde_json::Value) -> Result<Self, rustix_orm::RustixError> {
+            fn from_row(row: &serde_json::Value) -> Result<Self, rusticx::RusticxError> {
                 if !row.is_object() {
-                    return Err(rustix_orm::RustixError::DeserializationError(
+                    return Err(rusticx::RusticxError::DeserializationError(
                         "Row is not a JSON object".to_string()
                     ));
                 }
@@ -294,7 +294,7 @@ fn generate_from_json(field_ident: &Ident, column_name: &str, _field_type: &Type
                 } else {
                     match serde_json::from_value(val.clone()) {
                         Ok(v) => Some(v),
-                        Err(e) => return Err(rustix_orm::RustixError::DeserializationError(
+                        Err(e) => return Err(rusticx::RusticxError::DeserializationError(
                             format!("Failed to deserialize field {}: {}", #column_literal, e)
                         )),
                     }
@@ -308,12 +308,12 @@ fn generate_from_json(field_ident: &Ident, column_name: &str, _field_type: &Type
             #field_ident: if let Some(val) = obj.get(#column_literal) {
                 match serde_json::from_value(val.clone()) {
                     Ok(v) => v,
-                    Err(e) => return Err(rustix_orm::RustixError::DeserializationError(
+                    Err(e) => return Err(rusticx::RusticxError::DeserializationError(
                         format!("Failed to deserialize field {}: {}", #column_literal, e)
                     )),
                 }
             } else {
-                return Err(rustix_orm::RustixError::DeserializationError(
+                return Err(rusticx::RusticxError::DeserializationError(
                     format!("Missing required field: {}", #column_literal)
                 ));
             }

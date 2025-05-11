@@ -2,7 +2,7 @@ use std::fmt;
 
 /// Represents the various errors that can occur in the Rustix ORM.
 #[derive(Debug)]
-pub enum RustixError {
+pub enum RusticxError {
     /// Represents a connection error with a message detailing the issue.
     ConnectionError(String),
     
@@ -34,50 +34,50 @@ pub enum RustixError {
     DeserializationError(String),
 }
 
-impl fmt::Display for RustixError {
+impl fmt::Display for RusticxError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            RustixError::ConnectionError(msg) => write!(f, "Connection error: {}", msg),
-            RustixError::QueryError(msg) => write!(f, "Query error: {}", msg),
-            RustixError::TransactionError(msg) => write!(f, "Transaction error: {}", msg),
-            RustixError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
-            RustixError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
-            RustixError::NotFound(msg) => write!(f, "Not found: {}", msg),
-            RustixError::InvalidColumn(msg) => write!(f, "Invalid column: {}", msg),
-            RustixError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
-            RustixError::FeatureNotEnabled(msg) => write!(f, "Feature not enabled: {}", msg),
-            RustixError::DeserializationError(msg) => write!(f, "Deserialization error: {}", msg),
+            RusticxError::ConnectionError(msg) => write!(f, "Connection error: {}", msg),
+            RusticxError::QueryError(msg) => write!(f, "Query error: {}", msg),
+            RusticxError::TransactionError(msg) => write!(f, "Transaction error: {}", msg),
+            RusticxError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
+            RusticxError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
+            RusticxError::NotFound(msg) => write!(f, "Not found: {}", msg),
+            RusticxError::InvalidColumn(msg) => write!(f, "Invalid column: {}", msg),
+            RusticxError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
+            RusticxError::FeatureNotEnabled(msg) => write!(f, "Feature not enabled: {}", msg),
+            RusticxError::DeserializationError(msg) => write!(f, "Deserialization error: {}", msg),
         }
     }
 }
 
-impl std::error::Error for RustixError {}
+impl std::error::Error for RusticxError {}
 
 // Conversions from other error types to RustixError
 
 #[cfg(feature = "postgres")]
-impl From<tokio_postgres::Error> for RustixError {
+impl From<tokio_postgres::Error> for RusticxError {
     fn from(err: tokio_postgres::Error) -> Self {
-        RustixError::QueryError(err.to_string())
+        RusticxError::QueryError(err.to_string())
     }
 }
 
 #[cfg(feature = "mysql")]
-impl From<mysql::Error> for RustixError {
+impl From<mysql::Error> for RusticxError {
     fn from(err: mysql::Error) -> Self {
-        RustixError::QueryError(err.to_string())
+        RusticxError::QueryError(err.to_string())
     }
 }
 
 #[cfg(feature = "rusqlite")]
-impl From<rusqlite::Error> for RustixError {
+impl From<rusqlite::Error> for RusticxError {
     fn from(err: rusqlite::Error) -> Self {
-        RustixError::QueryError(err.to_string())
+        RusticxError::QueryError(err.to_string())
     }
 }
 
-impl From<serde_json::Error> for RustixError {
+impl From<serde_json::Error> for RusticxError {
     fn from(err: serde_json::Error) -> Self {
-        RustixError::SerializationError(err.to_string())
+        RusticxError::SerializationError(err.to_string())
     }
 }

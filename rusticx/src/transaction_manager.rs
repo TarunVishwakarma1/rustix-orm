@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
-use crate::error::RustixError;
+use crate::error::RusticxError;
 #[cfg(feature = "mysql")]
 use mysql::prelude::Queryable;
 #[cfg(feature = "rusqlite")]
@@ -18,7 +18,7 @@ pub use rusqlite;
 pub trait TransactionExecutor {
     /// Executes an SQL statement with parameters.
     /// Returns the number of rows affected.
-    fn execute(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<u64, RustixError>;
+    fn execute(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<u64, RusticxError>;
 }
 
 /// A trait for executing queries in a database.
@@ -29,7 +29,7 @@ pub trait QueryExecutor {
     /// For true dynamic dispatch on return types, consider returning a standard
     /// intermediate representation (like `serde_json::Value`).
     #[allow(dead_code)]
-    fn query_raw<T>(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
+    fn query_raw<T>(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<Vec<T>, RusticxError>
     where
         T: for<'de> serde::Deserialize<'de>;
 }
@@ -42,16 +42,16 @@ pub struct PostgresTransactionExecutor<'a> {
 
 #[cfg(feature = "postgres")]
 impl<'a> TransactionExecutor for PostgresTransactionExecutor<'a> {
-    fn execute(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<u64, RustixError> {
+    fn execute(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<u64, RusticxError> {
         // Create a runtime for executing the query
         let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            RustixError::QueryError(format!("Failed to create runtime: {}", e))
+            RusticxError::QueryError(format!("Failed to create runtime: {}", e))
         })?;
 
         // Execute the SQL statement (placeholder for parameters)
         let result = rt
             .block_on(async { self.tx.execute(sql, &[]).await }) // Using &[] as placeholder
-            .map_err(|e| RustixError::QueryError(e.to_string()))?;
+            .map_err(|e| RusticxError::QueryError(e.to_string()))?;
 
         Ok(result)
     }
@@ -59,19 +59,19 @@ impl<'a> TransactionExecutor for PostgresTransactionExecutor<'a> {
 
 #[cfg(feature = "postgres")]
 impl<'a> QueryExecutor for PostgresTransactionExecutor<'a> {
-    fn query_raw<T>(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
+    fn query_raw<T>(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<Vec<T>, RusticxError>
     where
         T: for<'de> serde::Deserialize<'de>,
     {
         // Create a runtime for executing the query
         let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            RustixError::QueryError(format!("Failed to create runtime: {}", e))
+            RusticxError::QueryError(format!("Failed to create runtime: {}", e))
         })?;
 
         // Execute the query (placeholder for parameters)
         let rows = rt
             .block_on(async { self.tx.query(sql, &[]).await }) // Using &[] as placeholder
-            .map_err(|e| RustixError::QueryError(e.to_string()))?;
+            .map_err(|e| RusticxError::QueryError(e.to_string()))?;
 
         let mut models = Vec::with_capacity(rows.len());
         for row in rows {
@@ -85,7 +85,7 @@ impl<'a> QueryExecutor for PostgresTransactionExecutor<'a> {
             }
 
             let model = serde_json::from_value(serde_json::Value::Object(json_obj))
-                .map_err(|e| RustixError::SerializationError(e.to_string()))?;
+                .map_err(|e| RusticxError::SerializationError(e.to_string()))?;
 
             models.push(model);
         }
@@ -151,11 +151,11 @@ pub struct MySQLTransactionExecutor<'a> {
 
 #[cfg(feature = "mysql")]
 impl<'a> TransactionExecutor for MySQLTransactionExecutor<'a> {
-    fn execute(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<u64, RustixError> {
+    fn execute(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<u64, RusticxError> {
         // Execute the SQL statement (placeholder for parameters)
         self.conn
             .exec_drop(sql, ()) // Using () as placeholder parameters
-            .map_err(|e| RustixError::QueryError(e.to_string()))?;
+            .map_err(|e| RusticxError::QueryError(e.to_string()))?;
 
         // MySQL exec_drop doesn't reliably return affected rows for all statements.
         // Returning 1 as a placeholder; a more robust approach might be needed.
@@ -165,7 +165,7 @@ impl<'a> TransactionExecutor for MySQLTransactionExecutor<'a> {
 
 #[cfg(feature = "mysql")]
 impl<'a> QueryExecutor for MySQLTransactionExecutor<'a> {
-    fn query_raw<T>(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
+    fn query_raw<T>(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<Vec<T>, RusticxError>
     where
         T: for<'de> serde::Deserialize<'de>,
     {
@@ -183,12 +183,12 @@ impl<'a> QueryExecutor for MySQLTransactionExecutor<'a> {
 
             serde_json::from_value(serde_json::Value::Object(json_obj))
                 .map_err(|e| mysql::Error::from(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))
-        }).map_err(|e| RustixError::QueryError(e.to_string()))?;
+        }).map_err(|e| RusticxError::QueryError(e.to_string()))?;
 
         let result: Vec<T> = rows
             .into_iter()
             .collect::<Result<_, _>>()
-            .map_err(|e| RustixError::QueryError(e.to_string()))?;
+            .map_err(|e| RusticxError::QueryError(e.to_string()))?;
 
         Ok(result)
     }
@@ -285,12 +285,12 @@ pub struct SQLiteTransactionExecutor<'a> {
 
 #[cfg(feature = "rusqlite")]
 impl<'a> TransactionExecutor for SQLiteTransactionExecutor<'a> {
-    fn execute(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<u64, RustixError> {
+    fn execute(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<u64, RusticxError> {
         // Execute the SQL statement (placeholder for parameters)
         let result = self
             .tx
             .execute(sql, []) // Using [] as placeholder parameters
-            .map_err(|e| RustixError::QueryError(e.to_string()))?;
+            .map_err(|e| RusticxError::QueryError(e.to_string()))?;
 
         Ok(result as u64)
     }
@@ -298,14 +298,14 @@ impl<'a> TransactionExecutor for SQLiteTransactionExecutor<'a> {
 
 #[cfg(feature = "rusqlite")]
 impl<'a> QueryExecutor for SQLiteTransactionExecutor<'a> {
-    fn query_raw<T>(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
+    fn query_raw<T>(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<Vec<T>, RusticxError>
     where
         T: for<'de> serde::Deserialize<'de>,
     {
         let mut stmt = self
             .tx
             .prepare(sql)
-            .map_err(|e| RustixError::QueryError(e.to_string()))?;
+            .map_err(|e| RusticxError::QueryError(e.to_string()))?;
 
         let column_names: Vec<String> = stmt
             .column_names()
@@ -334,9 +334,9 @@ impl<'a> QueryExecutor for SQLiteTransactionExecutor<'a> {
 
                 Ok(model)
             })
-            .map_err(|e| RustixError::QueryError(e.to_string()))?
+            .map_err(|e| RusticxError::QueryError(e.to_string()))?
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| RustixError::QueryError(e.to_string()))?;
+            .map_err(|e| RusticxError::QueryError(e.to_string()))?;
 
         Ok(models)
     }
@@ -381,18 +381,18 @@ pub fn sqlite_row_value_to_json(
 pub(crate) async fn run_postgres_transaction<F, R>(
     client: &Arc<Mutex<tokio_postgres::Client>>, // Use &Client instead of &mut
     transaction_fn: F,
-) -> Result<R, RustixError>
+) -> Result<R, RusticxError>
 where
-    F: FnOnce(&dyn TransactionExecutor) -> Result<R, RustixError>,
+    F: FnOnce(&dyn TransactionExecutor) -> Result<R, RusticxError>,
 {
     // Create a transaction
     let mut guard = client.lock().map_err(|e| {
-        RustixError::TransactionError(format!("Failed to acquire lock on connection: {}", e))
+        RusticxError::TransactionError(format!("Failed to acquire lock on connection: {}", e))
     })?;
     let tx = guard
         .transaction()
         .await
-        .map_err(|e| RustixError::TransactionError(format!("Failed to start transaction: {}", e)))?;
+        .map_err(|e| RusticxError::TransactionError(format!("Failed to start transaction: {}", e)))?;
 
     // Create a transaction executor
     let mut tx_executor = PostgresTransactionExecutor { tx: &tx };
@@ -405,7 +405,7 @@ where
         Ok(value) => {
             tx.commit()
                 .await
-                .map_err(|e| RustixError::TransactionError(format!("Failed to commit transaction: {}", e)))?;
+                .map_err(|e| RusticxError::TransactionError(format!("Failed to commit transaction: {}", e)))?;
             Ok(value)
         }
         Err(e) => {
@@ -423,18 +423,18 @@ where
 pub(crate) fn run_mysql_transaction<F, R>(
     pool: &Arc<mysql::Pool>,
     transaction_fn: F,
-) -> Result<R, RustixError>
+) -> Result<R, RusticxError>
 where
-    F: FnOnce(&dyn TransactionExecutor) -> Result<R, RustixError>,
+    F: FnOnce(&dyn TransactionExecutor) -> Result<R, RusticxError>,
 {
     // Get a connection from the pool
     let mut conn = pool
         .get_conn()
-        .map_err(|e| RustixError::TransactionError(format!("Failed to get MySQL connection: {}", e)))?;
+        .map_err(|e| RusticxError::TransactionError(format!("Failed to get MySQL connection: {}", e)))?;
 
     // Start a transaction
     conn.exec_drop("START TRANSACTION", ())
-        .map_err(|e| RustixError::TransactionError(format!("Failed to start transaction: {}", e)))?;
+        .map_err(|e| RusticxError::TransactionError(format!("Failed to start transaction: {}", e)))?;
 
     // Create a transaction executor
     let mut tx_executor = MySQLTransactionExecutor { conn: &mut conn };
@@ -446,7 +446,7 @@ where
     match result {
         Ok(value) => {
             conn.exec_drop("COMMIT", ())
-                .map_err(|e| RustixError::TransactionError(format!("Failed to commit transaction: {}", e)))?;
+                .map_err(|e| RusticxError::TransactionError(format!("Failed to commit transaction: {}", e)))?;
             Ok(value)
         }
         Err(e) => {
@@ -463,17 +463,17 @@ where
 pub(crate) fn run_sqlite_transaction<F, R>(
     conn: &Arc<Mutex<rusqlite::Connection>>,
     transaction_fn: F,
-) -> Result<R, RustixError>
+) -> Result<R, RusticxError>
 where
-    F: FnOnce(&dyn TransactionExecutor) -> Result<R, RustixError>,
+    F: FnOnce(&dyn TransactionExecutor) -> Result<R, RusticxError>,
 {
     let mut guard = conn.lock().map_err(|e| {
-        RustixError::TransactionError(format!("Failed to acquire lock on connection: {}", e))
+        RusticxError::TransactionError(format!("Failed to acquire lock on connection: {}", e))
     })?;
     // Start a transaction
     let tx = guard
         .transaction()
-        .map_err(|e| RustixError::TransactionError(format!("Failed to start transaction: {}", e)))?;
+        .map_err(|e| RusticxError::TransactionError(format!("Failed to start transaction: {}", e)))?;
 
     // Create a transaction executor
     let mut tx_executor = SQLiteTransactionExecutor { tx: &tx };
@@ -485,7 +485,7 @@ where
     match result {
         Ok(value) => {
             tx.commit()
-                .map_err(|e| RustixError::TransactionError(format!("Failed to commit transaction: {}", e)))?;
+                .map_err(|e| RusticxError::TransactionError(format!("Failed to commit transaction: {}", e)))?;
             Ok(value)
         }
         Err(e) => {

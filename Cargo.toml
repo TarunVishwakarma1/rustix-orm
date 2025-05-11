@@ -1,6 +1,4 @@
 [workspace]
 resolver = "2"
 
-members = ["rustix-orm", "rustix-orm-derive", "rustix-orm-example"]
-
-readme = "README.md"
+members = ["rusticx", "rusticx_derive", "rusticx_example"]

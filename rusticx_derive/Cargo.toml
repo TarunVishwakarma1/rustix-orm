@@ -1,10 +1,10 @@
 [package]
-name = "rustix-orm-derive"
+name = "rusticx_derive"
 version = "0.1.0"
 edition = "2021"
 authors = ["Tarun Vishwakarma <vishwakarmatarun121@icloud.com>"]
 description = "Derive macros for Rustic ORM"
-license = "../license.md"
+license = "MIT"
 repository = "https://github.com/TarunVishwakarma1/rustix-orm"
 
 [lib]

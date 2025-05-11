@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
-use rustix_orm::{Connection, RustixError, SQLModel,SqlType};
+use rusticx::{Connection, RusticxError, SQLModel,SqlType};
 use serde::{Deserialize, Serialize};
-use rustix_orm_derive::Model;
+use rusticx_derive::Model;
 
 #[derive(Debug, Serialize, Deserialize, Model)]
 #[model(table = "users")]
@@ -27,7 +27,7 @@ mod tests {
     use std::error::Error;
 
     // Helper function to create a test database connection
-    fn create_connection() -> Result<Connection, RustixError> {
+    fn create_connection() -> Result<Connection, RusticxError> {
         // Use an environment variable to override the connection string for CI/CD
         let conn_string = std::env::var("TEST_DB_URL")
             .unwrap_or_else(|_| "postgres://postgres:mypass@localhost:5432/postgres".to_string());
@@ -204,13 +204,13 @@ mod tests {
         // Verify deletions
         match User::find_by_id(&conn, user1.id.unwrap()) {
             Ok(_) => panic!("User 1 was not deleted"),
-            Err(RustixError::NotFound(_)) => (), // Expected
+            Err(RusticxError::NotFound(_)) => (), // Expected
             Err(e) => return Err(Box::new(e)),
         }
         
         match User::find_by_id(&conn, id) {
             Ok(_) => panic!("User 2 was not deleted"),
-            Err(RustixError::NotFound(_)) => (), // Expected
+            Err(RusticxError::NotFound(_)) => (), // Expected
             Err(e) => return Err(Box::new(e)),
         }
         
@@ -250,7 +250,7 @@ mod tests {
         // Test finding a non-existent ID
         match User::find_by_id(&conn, 99999) {
             Ok(_) => panic!("Should not find user with ID 99999"),
-            Err(RustixError::NotFound(_)) => (), // Expected
+            Err(RusticxError::NotFound(_)) => (), // Expected
             Err(e) => return Err(Box::new(e)),
         }
         

@@ -1,5 +1,5 @@
 [package]
-name = "rustix-orm"
+name = "rusticx"
 version = "0.1.0"
 edition = "2021"
 authors = ["Tarun Vishwakarma <vishwakarmatarun121@icloud.com>"]
@@ -14,7 +14,7 @@ categories = ["database"]
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rustix-orm-derive = { path = "../rustix-orm-derive", version = "0.1.0" }
+rusticx_derive = { path = "../rusticx_derive", version = "0.1.0" }
 # For PostgreSQL
 postgres = { version = "0.19", optional = true }
 tokio-postgres = { version = "0.7",features = ["with-serde_json-1", "with-chrono-0_4"], optional = true }

@@ -1,4 +1,4 @@
-name: Rustix-test
+name: Rusticx-test
 
 on:
   push:
