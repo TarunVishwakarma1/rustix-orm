@@ -1,24 +1,20 @@
 use serde::{Deserialize, Serialize};
-use rustix_orm::{Connection, SQLModel, SqlType, RustixError, DatabaseType}; // Import RustixError and DatabaseType
+use rustix_orm::{Connection, SQLModel, SqlType, RustixError}; // Import RustixError and DatabaseType
 use rustix_orm_derive::Model;
 use chrono::NaiveDateTime; // Assuming created_at uses this type
 
 #[derive(Debug, Serialize, Deserialize, Model)]
 #[model(table = "users")]
-pub struct User{
-    #[model(primary_key)]
+pub struct User {
+    #[model(primary_key, auto_increment)]
     pub id: Option<i32>,
 
-    #[model(column = "full_name")] // Keep this for your Model derive
-    #[serde(rename = "full_name")] // <-- Essential for Serde deserialization from JSON
+    #[model(column = "full_name")] 
+    #[serde(rename = "full_name")]
     pub name: String,
 
     pub email: String,
 
-    // Assuming created_at is chrono::NaiveDateTime.
-    // Ensure you have the chrono feature enabled in your Cargo.toml
-    // If you get serialization errors related to format, you might need:
-    // #[serde(with = "chrono::serde::naive_datetime_datetime_format")]
     pub created_at: NaiveDateTime,
 
     #[model(sql_type = "VARCHAR(100)")]
@@ -40,15 +36,15 @@ fn main() -> Result<(), rustix_orm::RustixError> {
     // --- Demonstrate create_table_sql ---
     // This part is often run separately or conditionally to set up the database.
     // Uncomment and run once if you need to create the table.
-    // println!("\n--- Demonstrating create_table_sql ---");
-    // let create_sql = User::create_table_sql(&conn.get_db_type());
-    // println!("Generated CREATE TABLE SQL:\n{}", create_sql);
-    // // Execute the create table SQL (use with caution - it will error if table exists)
-    // // let create_result = conn.execute(&create_sql, &[]);
-    // // match create_result {
-    // //     Ok(_) => println!("CREATE TABLE command executed (table might already exist)."),
-    // //     Err(e) => eprintln!("Error executing CREATE TABLE: {}", e),
-    // // }
+    println!("\n--- Demonstrating create_table_sql ---");
+    let create_sql = User::create_table_sql(&conn.get_db_type());
+    println!("Generated CREATE TABLE SQL:\n{}", create_sql);
+    // Execute the create table SQL (use with caution - it will error if table exists)
+    let create_result = conn.execute(&create_sql, &[]);
+    match create_result {
+        Ok(_) => println!("CREATE TABLE command executed (table might already exist)."),
+        Err(e) => eprintln!("Error executing CREATE TABLE: {}", e),
+    }
 
 
     // --- Demonstrate INSERT ---

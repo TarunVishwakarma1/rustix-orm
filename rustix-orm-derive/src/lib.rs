@@ -1,8 +1,8 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, Attribute, Data, DeriveInput, Expr, Ident, Meta, MetaNameValue,
-    Type, TypePath,
+    parse_macro_input, Attribute, Data, DeriveInput, Expr, Ident, Meta, MetaNameValue, Type,
+    TypePath,
 };
 
 #[proc_macro_derive(Model, attributes(model))]
@@ -22,6 +22,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     };
 
     let mut primary_key_field: Option<Ident> = None;
+    let mut primary_key_type: Option<Type> = None;
+    let mut pk_is_auto_increment = false;
+    let mut pk_is_uuid = false;
     let mut field_sql_defs = Vec::new();
     let mut field_names = Vec::new();
     let mut field_to_sql_values = Vec::new();
@@ -31,7 +34,6 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
 
     for field in fields {
         let field_ident = field.ident.clone().unwrap();
-        let field_ident_str = field_ident.to_string();
         let field_name = field_ident.to_string();
         let mut column_name = field_name.clone();
         let mut is_primary_key = false;
@@ -39,9 +41,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         let mut default_value = String::new();
         let mut is_nullable = false;
         let mut custom_type = None;
-
-        field_idents.push(field_ident.clone());
-        field_str_names.push(field_ident_str);
+        let mut skip = false;
+        let mut auto_increment = false;
+        let mut uuid_pk = false;
 
         // Process field attributes
         for attr in &field.attrs {
@@ -60,8 +62,17 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                             if path.is_ident("primary_key") {
                                 is_primary_key = true;
                                 primary_key_field = Some(field_ident.clone());
+                                primary_key_type = Some(field.ty.clone());
                             } else if path.is_ident("nullable") {
                                 is_nullable = true;
+                            } else if path.is_ident("skip") {
+                                skip = true;
+                            } else if path.is_ident("auto_increment") {
+                                auto_increment = true;
+                                pk_is_auto_increment = true;
+                            } else if path.is_ident("uuid") {
+                                uuid_pk = true;
+                                pk_is_uuid = true;
                             }
                         }
                         Meta::NameValue(MetaNameValue { path, value, .. }) => {
@@ -92,6 +103,12 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
             }
         }
 
+        if skip {
+            continue;
+        }
+
+        field_idents.push(field_ident.clone());
+        field_str_names.push(field_name.clone());
         field_names.push(column_name.clone());
 
         // Generate field values extraction for ToSql
@@ -100,15 +117,10 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         };
         field_to_sql_values.push(field_to_sql_value);
 
-        // Generate from_row conversion for this field
         let is_option = is_nullable || is_option_type(&field.ty);
         let field_from_json = generate_from_json(&field_ident, &column_name, &field.ty, is_option);
         field_from_row.push(field_from_json);
 
-        let column_name_literal = column_name.clone();
-        let default_literal = default_value.clone();
-
-        // Generate SQL type from Rust type
         let sql_type = if let Some(custom) = custom_type {
             quote! { SqlType::Custom(#custom.to_string()) }
         } else {
@@ -118,14 +130,23 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
 
         let sql_def = quote! {
             {
-                let mut part = format!("{} {}", #column_name_literal, match db_type {
-                    rustix_orm::DatabaseType::PostgreSQL => #sql_type.pg_type().to_string(), // Changed
-                    rustix_orm::DatabaseType::MySQL => #sql_type.mysql_type().to_string(),     // Changed
-                    rustix_orm::DatabaseType::SQLite => #sql_type.sqlite_type().to_string(),    // Changed
+                let mut part = format!("{} {}", #column_name, match db_type {
+                    rustix_orm::DatabaseType::PostgreSQL => #sql_type.pg_type().to_string(),
+                    rustix_orm::DatabaseType::MySQL => #sql_type.mysql_type().to_string(),
+                    rustix_orm::DatabaseType::SQLite => #sql_type.sqlite_type().to_string(),
                 });
 
                 if #is_primary_key {
                     part.push_str(" PRIMARY KEY");
+                    
+                    // Add auto-increment syntax based on database type
+                    if #auto_increment {
+                        match db_type {
+                            rustix_orm::DatabaseType::PostgreSQL => part.push_str(" GENERATED ALWAYS AS IDENTITY"),
+                            rustix_orm::DatabaseType::MySQL => part.push_str(" AUTO_INCREMENT"),
+                            rustix_orm::DatabaseType::SQLite => part.push_str(" AUTOINCREMENT"),
+                        }
+                    }
                 }
 
                 if !#is_nullable && !#is_primary_key {
@@ -133,7 +154,14 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                 }
 
                 if #has_default {
-                    part.push_str(&format!(" DEFAULT {}", #default_literal));
+                    part.push_str(&format!(" DEFAULT {}", #default_value));
+                } else if #uuid_pk && #is_primary_key {
+                    // Add UUID default function based on database type
+                    match db_type {
+                        rustix_orm::DatabaseType::PostgreSQL => part.push_str(" DEFAULT gen_random_uuid()"),
+                        rustix_orm::DatabaseType::MySQL => part.push_str(" DEFAULT (UUID())"),
+                        rustix_orm::DatabaseType::SQLite => part.push_str(" DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(6))))"),
+                    };
                 }
 
                 part
@@ -144,13 +172,45 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     }
 
     let pk_ident = primary_key_field.unwrap_or_else(|| Ident::new("id", name.span()));
+    let field_name_literals: Vec<_> = field_names.iter().map(|name| quote! { #name }).collect();
 
-    // Convert field_names to static string literals
-    let field_name_literals: Vec<_> = field_names.iter().map(|name| {
-        let name_str = name.as_str();
-        quote! { #name_str }
-    }).collect();
+    // Determine primary key type and use appropriate conversion
+    let get_primary_key_code = match primary_key_type {
+        Some(ref pk_type) => {
+            if is_option_type(pk_type) {
+                if pk_is_uuid {
+                    // Handle Option<Uuid>
+                    quote! {
+                        self.#pk_ident.as_ref().map(|val| val.clone())
+                    }
+                } else {
+                    // Handle Option<i32> or other numeric types
+                    quote! {
+                        self.#pk_ident.as_ref().map(|val| *val as i32)
+                    }
+                }
+            } else {
+                // Handle non-Option types
+                if pk_is_uuid {
+                    quote! { Some(self.#pk_ident.clone()) }
+                } else {
+                    quote! { Some(self.#pk_ident as i32) }
+                }
+            }
+        },
+        None => {
+            // Default to i32 if no field is marked as primary key
+            quote! { 
+                if let Some(id) = &self.#pk_ident {
+                    Some(*id)
+                } else {
+                    None
+                }
+            }
+        }
+    };
 
+    // Expanded implementation - REMOVED the problematic trait implementation
     let expanded = quote! {
         impl SQLModel for #name {
             fn table_name() -> String {
@@ -162,20 +222,16 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
             }
 
             fn primary_key_value(&self) -> Option<i32> {
-                self.#pk_ident
+                #get_primary_key_code
             }
 
             fn set_primary_key(&mut self, id: i32) {
                 self.#pk_ident = Some(id);
             }
 
-            fn create_table_sql(db_type: &rustix_orm::DatabaseType) -> String { // Changed
+            fn create_table_sql(db_type: &rustix_orm::DatabaseType) -> String {
                 let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", Self::table_name());
-
-                let fields = vec![
-                    #(#field_sql_defs),*
-                ];
-
+                let fields = vec![#(#field_sql_defs),*];
                 sql.push_str(&fields.join(", "));
                 sql.push(')');
                 sql
@@ -186,14 +242,12 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
             }
 
             fn to_sql_field_values(&self) -> Vec<Box<dyn rustix_orm::ToSqlConvert>> {
-                vec![
-                    #(#field_to_sql_values),*
-                ]
+                vec![#(#field_to_sql_values),*]
             }
 
-            fn from_row(row: &serde_json::Value) -> Result<Self, rustix_orm::RustixError> { // Changed
+            fn from_row(row: &serde_json::Value) -> Result<Self, rustix_orm::RustixError> {
                 if !row.is_object() {
-                    return Err(rustix_orm::RustixError::DeserializationError( // Changed
+                    return Err(rustix_orm::RustixError::DeserializationError(
                         "Row is not a JSON object".to_string()
                     ));
                 }
@@ -210,7 +264,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-// Helper function to determine if a type is an Option<T>
+// Helper functions
 fn is_option_type(ty: &Type) -> bool {
     if let Type::Path(TypePath { path, .. }) = ty {
         if let Some(segment) = path.segments.last() {
@@ -220,7 +274,6 @@ fn is_option_type(ty: &Type) -> bool {
     false
 }
 
-// Generate code to extract a field value from a JSON object
 fn generate_from_json(field_ident: &Ident, column_name: &str, _field_type: &Type, is_optional: bool) -> proc_macro2::TokenStream {
     let column_literal = column_name;
 
@@ -259,7 +312,6 @@ fn generate_from_json(field_ident: &Ident, column_name: &str, _field_type: &Type
     }
 }
 
-// Maps Rust types to SQL types
 fn generate_sql_type(rust_type: &Type) -> proc_macro2::TokenStream {
     match rust_type {
         Type::Path(TypePath { path, .. }) => {
@@ -268,7 +320,6 @@ fn generate_sql_type(rust_type: &Type) -> proc_macro2::TokenStream {
             let type_name = ident.to_string();
 
             if type_name == "Option" {
-                // Handle Option<T>
                 if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
                     if let Some(arg) = args.args.first() {
                         if let syn::GenericArgument::Type(inner_type) = arg {
@@ -276,43 +327,40 @@ fn generate_sql_type(rust_type: &Type) -> proc_macro2::TokenStream {
                         }
                     }
                 }
-                quote! { SqlType::Text }
-            } else {
-                match type_name.as_str() {
-                    "i8" | "i16" | "i32" | "u8" | "u16" | "u32" => quote! { SqlType::Integer },
-                    "i64" | "u64" => quote! { SqlType::BigInt },
-                    "f32" | "f64" => quote! { SqlType::Float },
-                    "bool" => quote! { SqlType::Boolean },
-                    "String" | "str" => quote! { SqlType::Text },
-                    "Vec" => {
-                        // Check if it's Vec<u8> for binary data
-                        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                            if let Some(arg) = args.args.first() {
-                                if let syn::GenericArgument::Type(Type::Path(TypePath { path, .. })) = arg {
-                                    if let Some(seg) = path.segments.last() {
-                                        if seg.ident == "u8" {
-                                            return quote! { SqlType::Blob };
-                                        }
+                panic!("Invalid Option<T> type in field");
+            }
+
+            match type_name.as_str() {
+                "i8" | "i16" | "i32" | "u8" | "u16" | "u32" => quote! { SqlType::Integer },
+                "i64" | "u64" => quote! { SqlType::BigInt },
+                "f32" | "f64" => quote! { SqlType::Float },
+                "bool" => quote! { SqlType::Boolean },
+                "String" | "str" => quote! { SqlType::Text },
+                "Uuid" => quote! { SqlType::Text },
+                "NaiveDate" => quote! { SqlType::Date },
+                "NaiveTime" => quote! { SqlType::Time },
+                "NaiveDateTime" | "DateTime" => quote! { SqlType::DateTime },
+                "Vec" => {
+                    if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                        if let Some(arg) = args.args.first() {
+                            if let syn::GenericArgument::Type(Type::Path(TypePath { path, .. })) = arg {
+                                if let Some(seg) = path.segments.last() {
+                                    if seg.ident == "u8" {
+                                        return quote! { SqlType::Blob };
                                     }
                                 }
                             }
                         }
-                        quote! { SqlType::Blob }
-                    },
-                    // Add more type mappings as needed
-                    "NaiveDate" => quote! { SqlType::Date },
-                    "NaiveTime" => quote! { SqlType::Time },
-                    "NaiveDateTime" | "DateTime" => quote! { SqlType::DateTime },
-                    "Uuid" => quote! { SqlType::Text },
-                    _ => quote! { SqlType::Text }, // Default to TEXT for unknown types
+                    }
+                    quote! { SqlType::Blob }
                 }
+                _ => panic!("Unknown or unsupported Rust type: {}", type_name),
             }
         }
-        _ => quote! { SqlType::Text }, // Default for complex types
+        _ => panic!("Unsupported complex type for SQL mapping"),
     }
 }
 
-// Extract table name from attributes
 fn extract_table_name(attrs: &[Attribute]) -> Option<String> {
     for attr in attrs {
         if !attr.path().is_ident("model") {

@@ -59,85 +59,101 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
     fn from_row(row: &serde_json::Value) -> Result<Self, RustixError>;
 
     /// Inserts a new record into the database table based on the model instance.
-    ///
-    /// This method excludes the primary key field from the INSERT statement
-    /// and parameters, relying on the database to generate it. After successful
-    /// insertion, the generated primary key is set on the model instance.
-    fn insert(&mut self, conn: &Connection) -> Result<(), RustixError> {
-        let fields = Self::field_names();
-        let primary_key_field = Self::primary_key_field();
-
-        // Filter out the primary key field for insertion
-        let non_pk_fields: Vec<&'static str> = fields
-            .iter()
-            .filter(|&f| *f != &primary_key_field)
+///
+/// This method handles auto-increment primary keys by:
+/// 1. Including the primary key in the INSERT if the user provided a value
+/// 2. Excluding the primary key if it's None, letting the database generate it
+/// 3. Setting the generated primary key on the model instance after insertion
+fn insert(&mut self, conn: &Connection) -> Result<(), RustixError> {
+    let fields = Self::field_names();
+    let primary_key_field = Self::primary_key_field();
+    let field_values = self.to_sql_field_values();
+    
+    // Find the primary key field index
+    let pk_idx = fields.iter().position(|f| *f == primary_key_field);
+    
+    // Check if we should include the primary key in the INSERT
+    let include_pk = if let Some(idx) = pk_idx {
+        // Include PK if it has a value (not None)
+        !field_values[idx].is_null()
+    } else {
+        // No PK field found, include all fields
+        true
+    };
+    
+    // Filter fields based on whether to include PK
+    let insert_fields: Vec<&'static str> = if include_pk {
+        fields.clone()
+    } else {
+        fields.iter()
+            .filter(|&f| *f != primary_key_field)
             .copied()
-            .collect();
-
-        // Generate SQL placeholders based on the database type
-        let placeholders: Vec<String> = match conn.get_db_type() {
-            DatabaseType::PostgreSQL => (1..=non_pk_fields.len()).map(|i| format!("${}", i)).collect(),
-            _ => (0..non_pk_fields.len()).map(|_| "?".to_string()).collect()
-        };
-
-        let sql = format!(
-            "INSERT INTO {} ({}) VALUES ({})",
-            Self::table_name(),
-            non_pk_fields.join(", "),
-            placeholders.join(", ")
-        );
-
-        // Prepare parameters, skipping the primary key
-        let field_values = self.to_sql_field_values();
-        let mut params: Vec<&(dyn ToSql + Sync + 'static)> = Vec::new();
-
-        for (i, boxed_convert) in field_values.iter().enumerate() {
-            if Self::field_names()[i] != &primary_key_field {
-                 // as_ref_postgres is expected to return a reference to dyn ToSql + Sync + 'static
-                if let Some(sql_convert) = boxed_convert.as_ref_postgres() {
-                    params.push(sql_convert);
-                } else {
-                    // This error indicates a failure in the model's to_sql_field_values implementation
-                    return Err(RustixError::QueryError(format!(
-                        "Failed to convert field '{}' value to database-compatible type",
-                        Self::field_names()[i]
-                    )));
-                }
+            .collect()
+    };
+    
+    // Skip the insert if there are no fields to insert
+    if insert_fields.is_empty() {
+        return Err(RustixError::QueryError("No fields to insert".to_string()));
+    }
+    
+    // Generate SQL placeholders based on the database type
+    let placeholders: Vec<String> = match conn.get_db_type() {
+        DatabaseType::PostgreSQL => (1..=insert_fields.len()).map(|i| format!("${}", i)).collect(),
+        _ => (0..insert_fields.len()).map(|_| "?".to_string()).collect()
+    };
+    
+    let sql = format!(
+        "INSERT INTO {} ({}) VALUES ({})",
+        Self::table_name(),
+        insert_fields.join(", "),
+        placeholders.join(", ")
+    );
+    
+    // Prepare parameters, filtering out the primary key if needed
+    let mut params: Vec<&(dyn ToSql + Sync + 'static)> = Vec::new();
+    
+    for (idx, field_name) in fields.iter().enumerate() {
+        if insert_fields.contains(field_name) {
+            if let Some(sql_convert) = field_values[idx].as_ref_postgres() {
+                params.push(sql_convert);
+            } else {
+                return Err(RustixError::QueryError(format!(
+                    "Failed to convert field '{}' value to database-compatible type",
+                    field_name
+                )));
             }
         }
-
-        if params.len() != non_pk_fields.len() {
-            // This indicates an inconsistency between field_names and to_sql_field_values
-            return Err(RustixError::QueryError(
-                "Internal error: Parameter count mismatch for insert".to_string(),
-            ));
-        }
-
-        // Execute the query
-        conn.execute(&sql, &params)?;
-
-        // Get the last inserted ID
-        let last_id_sql = match conn.get_db_type() {
-            DatabaseType::PostgreSQL => "SELECT lastval() as id".to_string(),
-            DatabaseType::MySQL => "SELECT LAST_INSERT_ID() as id".to_string(),
-            DatabaseType::SQLite => "SELECT last_insert_rowid() as id".to_string(),
-        };
-
-        #[derive(Deserialize, Debug)]
-        struct IdRow {
-            id: i64,
-        }
-
-        let ids: Vec<IdRow> = conn.query_raw(&last_id_sql, &[])?;
-        if let Some(id_row) = ids.first() {
-            self.set_primary_key(id_row.id as i32);
-        } else {
-             // This case indicates a potential issue if insertion was successful but no ID was returned
-             return Err(RustixError::QueryError("Failed to retrieve last inserted ID".to_string()));
-        }
-
-        Ok(())
     }
+    
+    // Execute the query
+    conn.execute(&sql, &params)?;
+    
+    // If PK is not included in the insert, get the last inserted ID
+    if !include_pk {
+        if let Some(_) = pk_idx {
+            let last_id_sql = match conn.get_db_type() {
+                DatabaseType::PostgreSQL => "SELECT lastval() as id".to_string(),
+                DatabaseType::MySQL => "SELECT LAST_INSERT_ID() as id".to_string(),
+                DatabaseType::SQLite => "SELECT last_insert_rowid() as id".to_string(),
+            };
+            
+            #[derive(Deserialize, Debug)]
+            struct IdRow {
+                id: i64,
+            }
+            
+            let ids: Vec<IdRow> = conn.query_raw(&last_id_sql, &[])?;
+            if let Some(id_row) = ids.first() {
+                self.set_primary_key(id_row.id as i32);
+            } else {
+                return Err(RustixError::QueryError("Failed to retrieve last inserted ID".to_string()));
+            }
+        }
+    }
+    
+    Ok(())
+}
+
 
     /// Updates an existing record in the database table based on the model instance's primary key.
     ///
@@ -266,7 +282,6 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
         // No parameters for SELECT all
         let params: &[&(dyn ToSql + Sync + 'static)] = &[];
 
-        println!("sql: {}, params: {:?}",sql, params);
         // Attempt direct deserialization from the database result first
         let direct_results: Result<Vec<Self>, _> = conn.query_raw(&sql, params);
 
@@ -459,17 +474,107 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
 /// to provide a generic `dyn ToSql` reference compatible with the `postgres` crate's
 /// `ToSql` trait when the feature is enabled, and potentially a compatible trait
 /// for other databases if implemented.
+
 pub trait ToSqlConvert: Debug + Sync + Send {
     fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)>;
+    
+    // Add is_null method to check if a value is null (for Option types)
+    fn is_null(&self) -> bool {
+        false
+    }
 }
 
-// Implement ToSqlConvert for types that can be converted to PostgresToSql
-// This requires the postgres feature to be enabled. The `ToSql` here refers
-// to the re-exported trait which is the postgres crate's ToSql when enabled.
-#[cfg(feature = "postgres")]
-impl<T: PostgresToSql + Debug + Sync + Send + 'static> ToSqlConvert for T {
+// Add implementation for Option types
+impl<T: ToSqlConvert + Clone> ToSqlConvert for Option<T> {
     fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
-        Some(self as &(dyn ToSql + Sync + 'static)) // Explicitly cast to the re-exported ToSql
+        match self {
+            Some(inner) => inner.as_ref_postgres(),
+            None => None,
+        }
+    }
+    
+    fn is_null(&self) -> bool {
+        self.is_none()
+    }
+}
+
+impl<T: ToSqlConvert + ?Sized> ToSqlConvert for Box<T> {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        (**self).as_ref_postgres()
+    }
+    
+    fn is_null(&self) -> bool {
+        (**self).is_null()
+    }
+}
+impl ToSqlConvert for String {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
+    }
+}
+
+// Implementation for i32
+impl ToSqlConvert for i32 {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
+    }
+}
+
+// Implementation for i64
+impl ToSqlConvert for i64 {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
+    }
+}
+
+// Implementation for bool
+impl ToSqlConvert for bool {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
+    }
+}
+
+// Implementation for f64
+impl ToSqlConvert for f64 {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
+    }
+}
+
+// Implementation for NaiveDateTime
+impl ToSqlConvert for chrono::NaiveDateTime {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
+    }
+}
+
+// Implementation for UUID if you use it
+#[cfg(feature = "uuid")]
+impl ToSqlConvert for uuid::Uuid {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
+    }
+}
+
+// Implementation for Vec<u8> (for blob data)
+impl ToSqlConvert for Vec<u8> {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
+    }
+}
+
+// Add implementations for other types as needed
+// For NaiveDate
+impl ToSqlConvert for chrono::NaiveDate {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
+    }
+}
+
+// For NaiveTime
+impl ToSqlConvert for chrono::NaiveTime {
+    fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
+        Some(self)
     }
 }
 

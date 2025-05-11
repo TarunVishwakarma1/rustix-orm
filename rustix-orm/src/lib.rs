@@ -19,3 +19,5 @@ pub use transaction_manager::MySQLTransactionExecutor;
 pub use transaction_manager::SQLiteTransactionExecutor;
 #[cfg(feature = "postgres")]
 pub use transaction_manager::PostgresTransactionExecutor;
+#[cfg(feature = "postgres")]
+pub use postgres::types::ToSql as PostgresToSql;
