@@ -17,5 +17,5 @@ fn main() {
     // Creating Students Table
     let conn = Connection::new("postgres://postgres:mypass@localhost:5432/postgres").unwrap();
 
-    conn.create_table::<Student>();
+    conn.create_table::<Student>().unwrap();
 }

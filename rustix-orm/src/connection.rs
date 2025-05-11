@@ -11,7 +11,6 @@ use crate::transaction_manager::{run_sqlite_transaction, rusqlite};
 use crate::transaction_manager::{run_postgres_transaction, tokio_postgres};
 #[cfg(feature = "postgres")]
 use postgres::types::ToSql;
-use serde_json::Number;
 use tokio::runtime::Runtime;
 
 
