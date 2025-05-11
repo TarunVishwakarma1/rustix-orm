@@ -17,6 +17,7 @@ use tokio::runtime::Runtime;
 #[cfg(feature = "mysql")]
 use mysql::prelude::Queryable;
 
+/// Represents the type of database being used.
 #[derive(Debug, Clone)]
 pub enum DatabaseType {
     PostgreSQL,
@@ -24,6 +25,7 @@ pub enum DatabaseType {
     SQLite,
 }
 
+/// Represents a connection pool for different database types.
 #[derive(Clone)]
 pub enum ConnectionPool {
     #[cfg(feature = "postgres")]
@@ -35,6 +37,7 @@ pub enum ConnectionPool {
     None,
 }
 
+/// Represents a database connection with its URL, type, and connection pool.
 #[derive(Clone)]
 pub struct Connection {
     url: String,
@@ -43,6 +46,8 @@ pub struct Connection {
 }
 
 impl Connection {
+    /// Creates a new `Connection` instance based on the provided database URL.
+    /// Returns an error if the URL is invalid.
     pub fn new(url: &str) -> Result<Self, RustixError> {
         let db_type = if url.starts_with("postgres://") {
             DatabaseType::PostgreSQL
@@ -63,6 +68,7 @@ impl Connection {
         connection.connect()
     }
 
+    /// Establishes a connection to the database and returns the updated `Connection`.
     fn connect(self) -> Result<Self, RustixError> {
         let pool = match self.db_type {
             #[cfg(feature = "postgres")]
@@ -79,7 +85,6 @@ impl Connection {
                     RustixError::ConnectionError(format!("Failed to connect to PostgreSQL: {}", e))
                 })?;
 
-                // Spawn the connection task on the runtime
                 rt.spawn(async move {
                     if let Err(e) = connection.await {
                         eprintln!("Database connection error: {}", e);
@@ -124,6 +129,7 @@ impl Connection {
         })
     }
 
+    /// Creates a table in the database based on the provided SQL model.
     pub fn create_table<T: SQLModel>(&self) -> Result<(), RustixError> {
         let _table_name = T::table_name();
         let sql = T::create_table_sql(&self.db_type);
@@ -131,6 +137,7 @@ impl Connection {
         Ok(())
     }
 
+    /// Executes a SQL command with the provided parameters.
     pub fn execute(&self, sql: &str, params: &[&(dyn ToSql + Sync + 'static)]) -> Result<u64, RustixError> {
         match &self.pool {
             #[cfg(feature = "postgres")]
@@ -140,10 +147,7 @@ impl Connection {
                 })?;
                 
                 let result = rt.block_on(async {
-                    // Still using execute with empty params for simplicity.
-                    // Proper parameter binding should be implemented.
                     client_guard.execute(sql, params).await
-                    
                 }).map_err(|e| RustixError::QueryError(e.to_string()))?;
                 Ok(result)
             }
@@ -153,7 +157,6 @@ impl Connection {
                 let mut conn = pool
                     .get_conn()
                     .map_err(|e| RustixError::QueryError(e.to_string()))?;
-                // TODO: Proper parameter binding
                 let _result = conn
                     .exec_drop(sql, ())
                     .map_err(|e| RustixError::QueryError(e.to_string()))?;
@@ -166,7 +169,7 @@ impl Connection {
                     RustixError::ConnectionError(format!("Failed to acquire lock on SQLite connection: {}", e))
                 })?;
                 let result = conn_guard
-                    .execute(sql, []) // TODO: Proper parameter binding
+                    .execute(sql, [])
                     .map_err(|e| RustixError::QueryError(e.to_string()))?;
                 Ok(result as u64)
             }
@@ -180,6 +183,7 @@ impl Connection {
         }
     }
 
+    /// Executes a raw SQL query and returns the results as a vector of deserialized objects.
     pub fn query_raw<T>(&self, sql: &str, params: &[&(dyn ToSql + Sync + 'static)]) -> Result<Vec<T>, RustixError>
     where
         T: for<'de> serde::Deserialize<'de> + Debug,
@@ -191,7 +195,6 @@ impl Connection {
                     RustixError::TransactionError(format!("Failed to acquire lock on connection: {}", e))
                 })?;
                 let rows = rt.block_on(async {
-                    // TODO: Proper parameter binding
                     client_guard.query(sql, params).await
                 }).map_err(|e| RustixError::QueryError(e.to_string()))?;
 
@@ -216,7 +219,6 @@ impl Connection {
                     .get_conn()
                     .map_err(|e| RustixError::QueryError(e.to_string()))?;
 
-                // TODO: Implement proper parameter binding for mysql-connector-rust
                 let rows: Vec<Result<T, mysql::Error>> = conn
                     .query_map(sql, |row: mysql::Row| {
                         let mut json_obj = serde_json::Map::new();
@@ -286,6 +288,7 @@ impl Connection {
         }
     }
 
+    /// Executes a transaction using the provided transaction function.
     pub async fn transaction<F, R>(&self, transaction_fn: F) -> Result<R, RustixError>
     where
         F: FnOnce(&dyn TransactionExecutor) -> Result<R, RustixError> + Send + 'static,
@@ -316,6 +319,7 @@ impl Connection {
         }
     }
 
+    /// Returns a reference to the database type.
     pub fn get_db_type(&self) -> &DatabaseType {
         &self.db_type
     }

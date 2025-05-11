@@ -1,3 +1,4 @@
+/// Represents the various SQL data types supported by the ORM.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SqlType {
     Integer,
@@ -9,11 +10,11 @@ pub enum SqlType {
     Time,
     DateTime,
     Blob,
-    Custom(String),
+    Custom(String), // Allows for custom SQL types
 }
 
 impl SqlType {
-    // Return owned String values to avoid lifetime issues
+    /// Returns the PostgreSQL representation of the SQL type as a `String`.
     pub fn pg_type(&self) -> String {
         match self {
             SqlType::Integer => "INTEGER".to_string(),
@@ -29,6 +30,7 @@ impl SqlType {
         }
     }
 
+    /// Returns the MySQL representation of the SQL type as a `String`.
     pub fn mysql_type(&self) -> String {
         match self {
             SqlType::Integer => "INT".to_string(),
@@ -44,13 +46,14 @@ impl SqlType {
         }
     }
 
+    /// Returns the SQLite representation of the SQL type as a `String`.
     pub fn sqlite_type(&self) -> String {
         match self {
             SqlType::Integer => "INTEGER".to_string(),
-            SqlType::BigInt => "INTEGER".to_string(),
+            SqlType::BigInt => "INTEGER".to_string(), // SQLite uses INTEGER for BIGINT
             SqlType::Float => "REAL".to_string(),
             SqlType::Text => "TEXT".to_string(),
-            SqlType::Boolean => "INTEGER".to_string(),  // SQLite uses INTEGER for booleans
+            SqlType::Boolean => "INTEGER".to_string(), // SQLite uses INTEGER for booleans
             SqlType::Date => "TEXT".to_string(),        // SQLite uses TEXT for dates
             SqlType::Time => "TEXT".to_string(),        // SQLite uses TEXT for times
             SqlType::DateTime => "TEXT".to_string(),    // SQLite uses TEXT for datetimes

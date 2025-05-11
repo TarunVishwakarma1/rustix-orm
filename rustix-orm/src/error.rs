@@ -1,17 +1,37 @@
 use std::fmt;
 
+/// Represents the various errors that can occur in the Rustix ORM.
 #[derive(Debug)]
 pub enum RustixError {
+    /// Represents a connection error with a message detailing the issue.
     ConnectionError(String),
+    
+    /// Represents a query execution error with a message detailing the issue.
     QueryError(String),
+    
+    /// Represents a transaction error with a message detailing the issue.
     TransactionError(String),
+    
+    /// Represents a serialization error with a message detailing the issue.
     SerializationError(String),
+    
+    /// Represents a validation error with a message detailing the issue.
     ValidationError(String),
+    
+    /// Represents an error when a requested item is not found.
     NotFound(String),
+    
+    /// Represents an error when an invalid column is specified.
     InvalidColumn(String),
+    
+    /// Represents a general database error with a message detailing the issue.
     DatabaseError(String),
+    
+    /// Represents an error when a requested feature is not enabled.
     FeatureNotEnabled(String),
-    DeserializationError(String), // Add this line
+    
+    /// Represents an error during deserialization with a message detailing the issue.
+    DeserializationError(String),
 }
 
 impl fmt::Display for RustixError {
@@ -26,7 +46,7 @@ impl fmt::Display for RustixError {
             RustixError::InvalidColumn(msg) => write!(f, "Invalid column: {}", msg),
             RustixError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
             RustixError::FeatureNotEnabled(msg) => write!(f, "Feature not enabled: {}", msg),
-            RustixError::DeserializationError(msg) => write!(f, "Deserialization error: {}", msg), // Add this line
+            RustixError::DeserializationError(msg) => write!(f, "Deserialization error: {}", msg),
         }
     }
 }

@@ -5,14 +5,21 @@ use syn::{
     TypePath,
 };
 
+/// Derives the `SQLModel` trait for a struct, allowing it to be used as a database model.
+///
+/// This macro processes the struct's fields and their attributes to generate the necessary
+/// implementations for the `SQLModel` trait, including methods for table creation, field
+/// serialization, and deserialization.
 #[proc_macro_derive(Model, attributes(model))]
 pub fn derive_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
+    // Extract the table name from the model attributes or derive a default name
     let table_name = extract_table_name(&input.attrs)
         .unwrap_or_else(|| format!("{}s", name.to_string().to_lowercase()));
 
+    // Ensure the model is a struct with named fields
     let fields = match &input.data {
         Data::Struct(data) => match &data.fields {
             syn::Fields::Named(fields) => &fields.named,
@@ -21,6 +28,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         _ => panic!("Model can only be derived for structs"),
     };
 
+    // Initialize variables for processing fields
     let mut primary_key_field: Option<Ident> = None;
     let mut primary_key_type: Option<Type> = None;
     let mut _pk_is_auto_increment = false;
@@ -32,6 +40,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     let mut field_idents = Vec::new();
     let mut field_str_names = Vec::new();
 
+    // Process each field in the struct
     for field in fields {
         let field_ident = field.ident.clone().unwrap();
         let field_name = field_ident.to_string();
@@ -210,7 +219,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         }
     };
 
-    // Expanded implementation - REMOVED the problematic trait implementation
+    // Expanded implementation
     let expanded = quote! {
         impl SQLModel for #name {
             fn table_name() -> String {

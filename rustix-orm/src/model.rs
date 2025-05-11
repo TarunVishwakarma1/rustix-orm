@@ -57,101 +57,100 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
     fn from_row(row: &serde_json::Value) -> Result<Self, RustixError>;
 
     /// Inserts a new record into the database table based on the model instance.
-///
-/// This method handles auto-increment primary keys by:
-/// 1. Including the primary key in the INSERT if the user provided a value
-/// 2. Excluding the primary key if it's None, letting the database generate it
-/// 3. Setting the generated primary key on the model instance after insertion
-fn insert(&mut self, conn: &Connection) -> Result<(), RustixError> {
-    let fields = Self::field_names();
-    let primary_key_field = Self::primary_key_field();
-    let field_values = self.to_sql_field_values();
-    
-    // Find the primary key field index
-    let pk_idx = fields.iter().position(|f| *f == primary_key_field);
-    
-    // Check if we should include the primary key in the INSERT
-    let include_pk = if let Some(idx) = pk_idx {
-        // Include PK if it has a value (not None)
-        !field_values[idx].is_null()
-    } else {
-        // No PK field found, include all fields
-        true
-    };
-    
-    // Filter fields based on whether to include PK
-    let insert_fields: Vec<&'static str> = if include_pk {
-        fields.clone()
-    } else {
-        fields.iter()
-            .filter(|&f| *f != primary_key_field)
-            .copied()
-            .collect()
-    };
-    
-    // Skip the insert if there are no fields to insert
-    if insert_fields.is_empty() {
-        return Err(RustixError::QueryError("No fields to insert".to_string()));
-    }
-    
-    // Generate SQL placeholders based on the database type
-    let placeholders: Vec<String> = match conn.get_db_type() {
-        DatabaseType::PostgreSQL => (1..=insert_fields.len()).map(|i| format!("${}", i)).collect(),
-        _ => (0..insert_fields.len()).map(|_| "?".to_string()).collect()
-    };
-    
-    let sql = format!(
-        "INSERT INTO {} ({}) VALUES ({})",
-        Self::table_name(),
-        insert_fields.join(", "),
-        placeholders.join(", ")
-    );
-    
-    // Prepare parameters, filtering out the primary key if needed
-    let mut params: Vec<&(dyn ToSql + Sync + 'static)> = Vec::new();
-    
-    for (idx, field_name) in fields.iter().enumerate() {
-        if insert_fields.contains(field_name) {
-            if let Some(sql_convert) = field_values[idx].as_ref_postgres() {
-                params.push(sql_convert);
-            } else {
-                return Err(RustixError::QueryError(format!(
-                    "Failed to convert field '{}' value to database-compatible type",
-                    field_name
-                )));
+    ///
+    /// This method handles auto-increment primary keys by:
+    /// 1. Including the primary key in the INSERT if the user provided a value
+    /// 2. Excluding the primary key if it's None, letting the database generate it
+    /// 3. Setting the generated primary key on the model instance after insertion
+    fn insert(&mut self, conn: &Connection) -> Result<(), RustixError> {
+        let fields = Self::field_names();
+        let primary_key_field = Self::primary_key_field();
+        let field_values = self.to_sql_field_values();
+        
+        // Find the primary key field index
+        let pk_idx = fields.iter().position(|f| *f == primary_key_field);
+        
+        // Check if we should include the primary key in the INSERT
+        let include_pk = if let Some(idx) = pk_idx {
+            // Include PK if it has a value (not None)
+            !field_values[idx].is_null()
+        } else {
+            // No PK field found, include all fields
+            true
+        };
+        
+        // Filter fields based on whether to include PK
+        let insert_fields: Vec<&'static str> = if include_pk {
+            fields.clone()
+        } else {
+            fields.iter()
+                .filter(|&f| *f != primary_key_field)
+                .copied()
+                .collect()
+        };
+        
+        // Skip the insert if there are no fields to insert
+        if insert_fields.is_empty() {
+            return Err(RustixError::QueryError("No fields to insert".to_string()));
+        }
+        
+        // Generate SQL placeholders based on the database type
+        let placeholders: Vec<String> = match conn.get_db_type() {
+            DatabaseType::PostgreSQL => (1..=insert_fields.len()).map(|i| format!("${}", i)).collect(),
+            _ => (0..insert_fields.len()).map(|_| "?".to_string()).collect()
+        };
+        
+        let sql = format!(
+            "INSERT INTO {} ({}) VALUES ({})",
+            Self::table_name(),
+            insert_fields.join(", "),
+            placeholders.join(", ")
+        );
+        
+        // Prepare parameters, filtering out the primary key if needed
+        let mut params: Vec<&(dyn ToSql + Sync + 'static)> = Vec::new();
+        
+        for (idx, field_name) in fields.iter().enumerate() {
+            if insert_fields.contains(field_name) {
+                if let Some(sql_convert) = field_values[idx].as_ref_postgres() {
+                    params.push(sql_convert);
+                } else {
+                    return Err(RustixError::QueryError(format!(
+                        "Failed to convert field '{}' value to database-compatible type",
+                        field_name
+                    )));
+                }
             }
         }
-    }
-    
-    // Execute the query
-    conn.execute(&sql, &params)?;
-    
-    // If PK is not included in the insert, get the last inserted ID
-    if !include_pk {
-        if let Some(_) = pk_idx {
-            let last_id_sql = match conn.get_db_type() {
-                DatabaseType::PostgreSQL => "SELECT lastval() as id".to_string(),
-                DatabaseType::MySQL => "SELECT LAST_INSERT_ID() as id".to_string(),
-                DatabaseType::SQLite => "SELECT last_insert_rowid() as id".to_string(),
-            };
-            
-            #[derive(Deserialize, Debug)]
-            struct IdRow {
-                id: i64,
-            }
-            
-            let ids: Vec<IdRow> = conn.query_raw(&last_id_sql, &[])?;
-            if let Some(id_row) = ids.first() {
-                self.set_primary_key(id_row.id as i32);
-            } else {
-                return Err(RustixError::QueryError("Failed to retrieve last inserted ID".to_string()));
+        
+        // Execute the query
+        conn.execute(&sql, &params)?;
+        
+        // If PK is not included in the insert, get the last inserted ID
+        if !include_pk {
+            if let Some(_) = pk_idx {
+                let last_id_sql = match conn.get_db_type() {
+                    DatabaseType::PostgreSQL => "SELECT lastval() as id".to_string(),
+                    DatabaseType::MySQL => "SELECT LAST_INSERT_ID() as id".to_string(),
+                    DatabaseType::SQLite => "SELECT last_insert_rowid() as id".to_string(),
+                };
+                
+                #[derive(Deserialize, Debug)]
+                struct IdRow {
+                    id: i64,
+                }
+                
+                let ids: Vec<IdRow> = conn.query_raw(&last_id_sql, &[])?;
+                if let Some(id_row) = ids.first() {
+                    self.set_primary_key(id_row.id as i32);
+                } else {
+                    return Err(RustixError::QueryError("Failed to retrieve last inserted ID".to_string()));
+                }
             }
         }
+        
+        Ok(())
     }
-    
-    Ok(())
-}
-
 
     /// Updates an existing record in the database table based on the model instance's primary key.
     ///
@@ -218,7 +217,6 @@ fn insert(&mut self, conn: &Connection) -> Result<(), RustixError> {
 
         Ok(())
     }
-
 
     /// Finds a single record by its primary key.
     /// Returns `Ok(model)` if found, `Err(RustixError::NotFound)` if not found.
@@ -474,9 +472,10 @@ fn insert(&mut self, conn: &Connection) -> Result<(), RustixError> {
 /// for other databases if implemented.
 
 pub trait ToSqlConvert: Debug + Sync + Send {
+    /// Returns a reference to the value as `dyn ToSql + Sync + 'static` for PostgreSQL.
     fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)>;
     
-    // Add is_null method to check if a value is null (for Option types)
+    /// Checks if the value is null (for Option types).
     fn is_null(&self) -> bool {
         false
     }

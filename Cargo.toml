@@ -2,3 +2,5 @@
 resolver = "2"
 
 members = ["rustix-orm", "rustix-orm-derive", "rustix-orm-example"]
+
+readme = "README.md"

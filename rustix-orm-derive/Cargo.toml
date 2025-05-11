@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Tarun Vishwakarma <vishwakarmatarun121@icloud.com>"]
 description = "Derive macros for Rustic ORM"
-license = "MIT"
+license = "../license.md"
 repository = "https://github.com/TarunVishwakarma1/rustix-orm"
 
 [lib]
