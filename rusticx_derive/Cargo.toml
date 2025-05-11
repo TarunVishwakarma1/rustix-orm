@@ -14,3 +14,9 @@ proc-macro = true
 syn = { version = "2", features = ["full", "extra-traits"] }
 quote = "1.0"
 proc-macro2 = "1.0"
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3
