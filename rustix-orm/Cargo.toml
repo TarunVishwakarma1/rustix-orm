@@ -26,13 +26,15 @@ log = "0.4"
 tokio = {version = "1.45.0", features = ["rt-multi-thread"]}
 base64 = "0.22.1"
 chrono = { version = "0.4.41", features = ["serde"]}
+uuid = { version = "1.16.0", optional = true}
 
 [features]
 default = ["postgres-support"]
 postgres-support = ["postgres", "tokio-postgres"]
 mysql-support = ["mysql"]
 sqlite-support = ["rusqlite"]
-full = ["postgres-support", "mysql-support", "sqlite-support"]
+full = ["postgres-support", "mysql-support", "sqlite-support", "uuid"]
+uuid = ["dep:uuid"]
 
 [dev-dependencies]
 env_logger = "0.11.8"

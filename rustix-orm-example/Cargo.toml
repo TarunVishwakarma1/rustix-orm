@@ -9,6 +9,7 @@ rustix-orm = { path = "../rustix-orm", features = ["postgres"] }
 rustix-orm-derive = { path = "../rustix-orm-derive", version = "0.1.0"}
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
+tokio = {version = "1.45.0", features = ["full"]}
 
 [dev-dependencies]
 anyhow = "1.0.98"

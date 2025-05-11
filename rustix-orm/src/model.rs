@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::connection::{Connection, DatabaseType};
 use crate::error::RustixError;
 
-// Conditional imports for database-specific ToSql traits
-#[cfg(feature = "postgres")]
-use postgres::types::ToSql as PostgresToSql;
+
 #[cfg(feature = "rusqlite")]
 use rusqlite::types::ToSql as RusqliteToSql;
 #[cfg(feature = "mysql")]

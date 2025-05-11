@@ -23,7 +23,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
 
     let mut primary_key_field: Option<Ident> = None;
     let mut primary_key_type: Option<Type> = None;
-    let mut pk_is_auto_increment = false;
+    let mut _pk_is_auto_increment = false;
     let mut pk_is_uuid = false;
     let mut field_sql_defs = Vec::new();
     let mut field_names = Vec::new();
@@ -69,7 +69,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                                 skip = true;
                             } else if path.is_ident("auto_increment") {
                                 auto_increment = true;
-                                pk_is_auto_increment = true;
+                                _pk_is_auto_increment = true;
                             } else if path.is_ident("uuid") {
                                 uuid_pk = true;
                                 pk_is_uuid = true;

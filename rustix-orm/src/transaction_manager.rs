@@ -26,6 +26,7 @@ pub trait QueryExecutor {
     /// `query_raw` makes this trait not fully dyn compatible if `T` varies at runtime.
     /// For true dynamic dispatch on return types, consider returning a standard
     /// intermediate representation (like `serde_json::Value`).
+    #[allow(dead_code)]
     fn query_raw<T>(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
     where
         T: for<'de> serde::Deserialize<'de>;
@@ -39,7 +40,7 @@ pub struct PostgresTransactionExecutor<'a> {
 
 #[cfg(feature = "postgres")]
 impl<'a> TransactionExecutor for PostgresTransactionExecutor<'a> {
-    fn execute(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<u64, RustixError> {
+    fn execute(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<u64, RustixError> {
         // Consider using a shared runtime or moving to async for execute if possible
         let rt = tokio::runtime::Runtime::new().map_err(|e| {
             RustixError::QueryError(format!("Failed to create runtime: {}", e))
@@ -57,7 +58,7 @@ impl<'a> TransactionExecutor for PostgresTransactionExecutor<'a> {
 
 #[cfg(feature = "postgres")]
 impl<'a> QueryExecutor for PostgresTransactionExecutor<'a> {
-    fn query_raw<T>(&mut self, sql: &str, params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
+    fn query_raw<T>(&mut self, sql: &str, _params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
     where
         T: for<'de> serde::Deserialize<'de>,
     {

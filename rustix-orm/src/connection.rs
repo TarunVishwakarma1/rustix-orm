@@ -11,6 +11,7 @@ use crate::transaction_manager::{run_sqlite_transaction, rusqlite};
 use crate::transaction_manager::{run_postgres_transaction, tokio_postgres};
 #[cfg(feature = "postgres")]
 use postgres::types::ToSql;
+use serde_json::Number;
 use tokio::runtime::Runtime;
 
 
@@ -125,9 +126,8 @@ impl Connection {
     }
 
     pub fn create_table<T: SQLModel>(&self) -> Result<(), RustixError> {
-        let table_name = T::table_name();
+        let _table_name = T::table_name();
         let sql = T::create_table_sql(&self.db_type);
-        println!("creating table: {}, Query: {}", table_name, &sql);
         self.execute(&sql, &[])?;
         Ok(())
     }
@@ -143,7 +143,6 @@ impl Connection {
                 let result = rt.block_on(async {
                     // Still using execute with empty params for simplicity.
                     // Proper parameter binding should be implemented.
-                    println!("sql: {}, params: {:#?}", sql, params);
                     client_guard.execute(sql, params).await
                     
                 }).map_err(|e| RustixError::QueryError(e.to_string()))?;
@@ -196,7 +195,7 @@ impl Connection {
                     // TODO: Proper parameter binding
                     client_guard.query(sql, params).await
                 }).map_err(|e| RustixError::QueryError(e.to_string()))?;
-                
+
                 let mut models = Vec::with_capacity(rows.len());
                 for row in rows {
                     let mut json_obj = serde_json::Map::new();
