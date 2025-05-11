@@ -2,3 +2,9 @@
 resolver = "2"
 
 members = ["rusticx", "rusticx_derive", "rusticx_example"]
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3

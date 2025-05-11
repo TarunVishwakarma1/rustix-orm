@@ -6,7 +6,7 @@ authors = ["Tarun Vishwakarma <vishwakarmatarun121@icloud.com>"]
 description = "Derive macros for Rustic ORM"
 license = "MIT"
 repository = "https://github.com/TarunVishwakarma1/rustix-orm"
-
+readme = "README.md"
 [lib]
 proc-macro = true
 
