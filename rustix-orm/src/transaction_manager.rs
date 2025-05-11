@@ -116,10 +116,38 @@ pub fn pg_row_value_to_json(
         25 | 1043 => row.try_get::<_, String>(name).map(serde_json::Value::String),
         // bool
         16 => row.try_get::<_, bool>(name).map(serde_json::Value::Bool),
-        // timestamp/timestamptz (treating as string for simplicity)
-        1114 | 1184 => row.try_get::<_, String>(name).map(serde_json::Value::String),
+        // timestamp/timestamptz
+        1114 | 1184 => {
+            // Try to get as a chrono::NaiveDateTime first (for timestamp)
+            if let Ok(dt) = row.try_get::<_, chrono::NaiveDateTime>(name) {
+                // Format NaiveDateTime to ISO 8601 without timezone (include microseconds)
+                // This format is generally parsable by serde into chrono::NaiveDateTime
+                let formatted = dt.format("%Y-%m-%dT%H:%M:%S%.6f").to_string();
+                Ok(serde_json::Value::String(formatted))
+            }
+            // Try to get as a chrono::DateTime<chrono::Utc> (for timestamptz)
+            else if let Ok(dt) = row.try_get::<_, chrono::DateTime<chrono::Utc>>(name) {
+                // Format DateTime<Utc> to RFC 3339 (standard, includes timezone)
+                // This format is generally parsable by serde into chrono::DateTime<Utc>
+                let formatted = dt.to_rfc3339();
+                Ok(serde_json::Value::String(formatted))
+            }
+            // Fall back to null if we can't convert (e.g. DB value was NULL or type error)
+            else {
+                Ok(serde_json::Value::Null)
+            }
+        }
+        // jsonb/json
+        114 | 3802 => row.try_get::<_, serde_json::Value>(name),
         // Other types - attempt to convert to string
-        _ => row.try_get::<_, String>(name).map(serde_json::Value::String),
+        _ => {
+            if let Ok(s) = row.try_get::<_, String>(name) {
+                Ok(serde_json::Value::String(s))
+            } else {
+                // If we can't convert to string, return null instead of an error
+                Ok(serde_json::Value::Null)
+            }
+        }
     }
 }
 

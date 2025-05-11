@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = "0.4.41"
 rustix-orm = { path = "../rustix-orm", features = ["postgres"] }
 rustix-orm-derive = { path = "../rustix-orm-derive", version = "0.1.0"}
 serde = { version = "1.0", features = ["derive"] }

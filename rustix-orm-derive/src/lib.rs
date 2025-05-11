@@ -24,7 +24,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     let mut primary_key_field: Option<Ident> = None;
     let mut field_sql_defs = Vec::new();
     let mut field_names = Vec::new();
-    let mut field_values = Vec::new();
+    let mut field_to_sql_values = Vec::new();
     let mut field_from_row = Vec::new();
     let mut field_idents = Vec::new();
     let mut field_str_names = Vec::new();
@@ -94,11 +94,11 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
 
         field_names.push(column_name.clone());
 
-        // Generate field values extraction
-        let field_value = quote! {
-            Box::new(format!("{:?}", self.#field_ident)) as Box<dyn std::fmt::Debug>
+        // Generate field values extraction for ToSql
+        let field_to_sql_value = quote! {
+            Box::new(self.#field_ident.clone()) as Box<dyn rustix_orm::ToSqlConvert>
         };
-        field_values.push(field_value);
+        field_to_sql_values.push(field_to_sql_value);
 
         // Generate from_row conversion for this field
         let is_option = is_nullable || is_option_type(&field.ty);
@@ -185,9 +185,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
                 vec![#(#field_name_literals),*]
             }
 
-            fn field_values(&self) -> Vec<Box<dyn std::fmt::Debug>> {
+            fn to_sql_field_values(&self) -> Vec<Box<dyn rustix_orm::ToSqlConvert>> {
                 vec![
-                    #(#field_values),*
+                    #(#field_to_sql_values),*
                 ]
             }
 
@@ -221,7 +221,7 @@ fn is_option_type(ty: &Type) -> bool {
 }
 
 // Generate code to extract a field value from a JSON object
-fn generate_from_json(field_ident: &Ident, column_name: &str, field_type: &Type, is_optional: bool) -> proc_macro2::TokenStream {
+fn generate_from_json(field_ident: &Ident, column_name: &str, _field_type: &Type, is_optional: bool) -> proc_macro2::TokenStream {
     let column_literal = column_name;
 
     if is_optional {

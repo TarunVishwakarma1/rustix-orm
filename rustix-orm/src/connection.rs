@@ -9,7 +9,10 @@ use crate::transaction_manager::{run_mysql_transaction, mysql};
 use crate::transaction_manager::{run_sqlite_transaction, rusqlite};
 #[cfg(feature = "postgres")]
 use crate::transaction_manager::{run_postgres_transaction, tokio_postgres};
+#[cfg(feature = "postgres")]
+use postgres::types::ToSql;
 use tokio::runtime::Runtime;
+
 
 #[cfg(feature = "mysql")]
 use mysql::prelude::Queryable;
@@ -129,7 +132,7 @@ impl Connection {
         Ok(())
     }
 
-    pub fn execute(&self, sql: &str, params: &[&dyn Debug]) -> Result<u64, RustixError> {
+    pub fn execute(&self, sql: &str, params: &[&(dyn ToSql + Sync + 'static)]) -> Result<u64, RustixError> {
         match &self.pool {
             #[cfg(feature = "postgres")]
             ConnectionPool::PostgreSQL(client, rt) => {
@@ -140,8 +143,8 @@ impl Connection {
                 let result = rt.block_on(async {
                     // Still using execute with empty params for simplicity.
                     // Proper parameter binding should be implemented.
-                    println!("sql: {}, params: {:#?}", sql, &params);
-                    client_guard.execute(sql, &[]).await
+                    println!("sql: {}, params: {:#?}", sql, params);
+                    client_guard.execute(sql, params).await
                     
                 }).map_err(|e| RustixError::QueryError(e.to_string()))?;
                 Ok(result)
@@ -179,9 +182,9 @@ impl Connection {
         }
     }
 
-    pub fn query_raw<T>(&self, sql: &str, _params: &[&dyn Debug]) -> Result<Vec<T>, RustixError>
+    pub fn query_raw<T>(&self, sql: &str, params: &[&(dyn ToSql + Sync + 'static)]) -> Result<Vec<T>, RustixError>
     where
-        T: for<'de> serde::Deserialize<'de>,
+        T: for<'de> serde::Deserialize<'de> + Debug,
     {
         match &self.pool {
             #[cfg(feature = "postgres")]
@@ -189,18 +192,17 @@ impl Connection {
                 let client_guard = client.lock().map_err(|e| {
                     RustixError::TransactionError(format!("Failed to acquire lock on connection: {}", e))
                 })?;
-
                 let rows = rt.block_on(async {
                     // TODO: Proper parameter binding
-                    client_guard.query(sql, &[]).await
+                    client_guard.query(sql, params).await
                 }).map_err(|e| RustixError::QueryError(e.to_string()))?;
-
+                
                 let mut models = Vec::with_capacity(rows.len());
                 for row in rows {
                     let mut json_obj = serde_json::Map::new();
                     for column in row.columns() {
                         let name = column.name();
-                        let value = crate::transaction_manager::pg_row_value_to_json(&row, column).unwrap_or(serde_json::Value::Null);
+                        let value = crate::transaction_manager::pg_row_value_to_json(&row, column).unwrap_or(serde_json::Value::String(String::from("Null")));
                         json_obj.insert(name.to_string(), value);
                     }
                     let model = serde_json::from_value(serde_json::Value::Object(json_obj))
