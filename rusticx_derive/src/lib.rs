@@ -119,7 +119,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     // Extract the table name from the struct attributes. If not found,
     // default to the struct name pluralized and lowercased.
     let table_name = extract_table_name(&input.attrs)
-        .unwrap_or_else(|| format!("{}s", name.to_string().to_lowercase()));
+        .unwrap_or_else(|| format!("{}", name.to_string().to_lowercase()));
 
     // Ensure the derived item is a struct with named fields.
     // Panic otherwise with a descriptive error message.
