@@ -1323,7 +1323,6 @@ dependencies = [
  "mysql",
  "postgres",
  "rusqlite",
- "rusticx_derive",
  "serde",
  "serde_json",
  "tokio",

@@ -14,7 +14,6 @@ categories = ["database"]
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rusticx_derive = { path = "../rusticx_derive", version = "0.1.0" }
 # For PostgreSQL
 postgres = { version = "0.19", optional = true }
 tokio-postgres = { version = "0.7",features = ["with-serde_json-1", "with-chrono-0_4"], optional = true }
