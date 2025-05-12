@@ -1,5 +1,5 @@
 use chrono::NaiveDateTime;
-use rusticx::{Connection, RusticxError, SQLModel,SqlType};
+use rusticx::{Connection, RusticxError, SQLModel};
 use serde::{Deserialize, Serialize};
 use rusticx_derive::Model;
 

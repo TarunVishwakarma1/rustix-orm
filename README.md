@@ -102,6 +102,10 @@ Make sure to set the `TEST_DB_URL` environment variable to point to your test da
 
 Contributions are welcome! Please fork the repository and submit a pull request with your changes.
 
+## Future Updates
+
+[ ] async runtimes (in development)
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

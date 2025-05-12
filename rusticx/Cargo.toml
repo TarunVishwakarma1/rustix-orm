@@ -1,12 +1,12 @@
 [package]
 name = "rusticx"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Tarun Vishwakarma <vishwakarmatarun121@icloud.com>"]
 description = "A lightweight, intuitive ORM library for Rust"
 license = "MIT"
 repository = "https://github.com/TarunVishwakarma1/rustix-orm"
-readme = "../README.md"
+readme = "README.md"
 keywords = ["orm", "database", "sql", "postgres", "mysql"]
 categories = ["database"]
 

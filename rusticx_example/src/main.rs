@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use rusticx::{Connection, SQLModel, SqlType, RusticxError}; // Import RusticxError and DatabaseType
+use rusticx::{Connection, SQLModel, RusticxError}; // Import RusticxError and DatabaseType
 use rusticx_derive::Model;
 use chrono::NaiveDateTime; // Assuming created_at uses this type
 

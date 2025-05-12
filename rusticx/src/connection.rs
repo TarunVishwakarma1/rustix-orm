@@ -82,7 +82,7 @@ impl Connection {
     /// Returns a `Result` containing the initialized `Connection` on success,
     /// or a `RusticxError` if the URL is invalid or connection fails.
     pub fn new(url: &str) -> Result<Self, RusticxError> {
-        let db_type = if url.starts_with("postgres://") {
+        let db_type = if url.starts_with("postgresql://") {
             DatabaseType::PostgreSQL
         } else if url.starts_with("mysql://") {
             DatabaseType::MySQL
@@ -90,7 +90,7 @@ impl Connection {
             DatabaseType::SQLite
         } else {
             return Err(RusticxError::ConnectionError(
-                "Invalid database URL scheme. Must start with postgres://, mysql://, or sqlite://"
+                "Invalid database URL scheme. Must start with postgresql://, mysql://, or sqlite://"
                     .to_string(),
             ));
         };
