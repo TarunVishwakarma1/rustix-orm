@@ -116,7 +116,7 @@ pub trait SQLModel: Sized + Debug + Serialize + for<'de> Deserialize<'de> {
 
         let sql = format!(
             "INSERT INTO {} ({}) VALUES ({})",
-            Self::table_name(),
+            Self::table_name().to_lowercase(),
             insert_fields.join(", "),
             placeholders.join(", ")
         );
@@ -614,7 +614,7 @@ impl ToSqlConvert for chrono::NaiveDateTime {
 #[cfg(feature = "uuid")]
 impl ToSqlConvert for uuid::Uuid {
     fn as_ref_postgres(&self) -> Option<&(dyn ToSql + Sync + 'static)> {
-        Some(self)
+        Some(self as &(dyn ToSql + Sync + 'static))
     }
 }
 

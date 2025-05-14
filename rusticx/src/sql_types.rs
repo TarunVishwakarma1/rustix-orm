@@ -1,6 +1,7 @@
 /// Represents the various SQL data types supported by the ORM.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SqlType {
+    Uuid,
     Integer,
     BigInt,
     Float,
@@ -17,6 +18,7 @@ impl SqlType {
     /// Returns the PostgreSQL representation of the SQL type as a `String`.
     pub fn pg_type(&self) -> String {
         match self {
+            SqlType::Uuid => "UUID".to_string(),
             SqlType::Integer => "INTEGER".to_string(),
             SqlType::BigInt => "BIGINT".to_string(),
             SqlType::Float => "REAL".to_string(),
@@ -33,6 +35,7 @@ impl SqlType {
     /// Returns the MySQL representation of the SQL type as a `String`.
     pub fn mysql_type(&self) -> String {
         match self {
+            SqlType::Uuid => "TEXT".to_string(),
             SqlType::Integer => "INT".to_string(),
             SqlType::BigInt => "BIGINT".to_string(),
             SqlType::Float => "FLOAT".to_string(),
@@ -49,6 +52,7 @@ impl SqlType {
     /// Returns the SQLite representation of the SQL type as a `String`.
     pub fn sqlite_type(&self) -> String {
         match self {
+            SqlType::Uuid => "TEXT".to_string(),
             SqlType::Integer => "INTEGER".to_string(),
             SqlType::BigInt => "INTEGER".to_string(), // SQLite uses INTEGER for BIGINT
             SqlType::Float => "REAL".to_string(),

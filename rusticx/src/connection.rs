@@ -235,7 +235,7 @@ impl Connection {
                 let client_guard = client.lock().map_err(|e| {
                     RusticxError::TransactionError(format!("Failed to acquire lock on connection: {}", e))
                 })?;
-
+                
                 let result = rt
                     .block_on(async { client_guard.execute(sql, params).await })
                     .map_err(|e| RusticxError::QueryError(e.to_string()))?;

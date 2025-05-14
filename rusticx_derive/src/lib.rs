@@ -449,7 +449,7 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
             /// A string containing the `CREATE TABLE` SQL statement.
             fn create_table_sql(db_type: &rusticx::DatabaseType) -> String {
                 // Start the CREATE TABLE statement
-                let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{}\" (", Self::table_name());
+                let mut sql = format!("CREATE TABLE IF NOT EXISTS {} (", Self::table_name());
                 // Collect the generated SQL definitions for each field
                 let fields = vec![#(#field_sql_defs),*];
                 // Join field definitions with commas and close the statement
@@ -635,7 +635,7 @@ fn generate_sql_type(rust_type: &Type) -> proc_macro2::TokenStream {
                 // Map String/str to Text
                 "String" | "str" => quote! { rusticx::SqlType::Text },
                 // Map Uuid (from `uuid` crate) to Text (common storage, can be overridden)
-                "Uuid" => quote! { rusticx::SqlType::Text },
+                "Uuid" => quote! { rusticx::SqlType::Uuid },
                 // Map chrono date/time types
                 "NaiveDate" => quote! { rusticx::SqlType::Date },
                 "NaiveTime" => quote! { rusticx::SqlType::Time },
@@ -696,7 +696,7 @@ fn extract_table_name(attrs: &[Attribute]) -> Option<String> {
                         // If found, extract the string literal value
                         if let Expr::Lit(expr_lit) = value {
                             if let syn::Lit::Str(lit_str) = expr_lit.lit {
-                                return Some(lit_str.value()); // Return the extracted table name
+                                return Some(lit_str.value().to_lowercase()); // Return the extracted table name
                             }
                         }
                     }
