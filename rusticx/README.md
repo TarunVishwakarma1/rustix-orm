@@ -8,8 +8,8 @@
 
 ## Features
 
-- **Multi-Database Support**: Seamlessly switch between PostgreSQL, MySQL, and SQLite.
-- **Asynchronous Operations**: Built on top of `tokio`, allowing for non-blocking database interactions.
+- **Multi-Database Support**: Seamlessly switch between PostgreSQL, MySQL, and SQLite. (Tested for Postgres)
+- **Asynchronous Operations**: Built on top of `tokio`, allowing for non-blocking database interactions. (in development)
 - **Error Handling**: Comprehensive error management with custom error types.
 - **Model Definition**: Define your database models with ease using traits.
 - **Transactions**: Support for executing transactions with rollback capabilities.
@@ -50,7 +50,7 @@ let conn = Connection::new("postgres://user:password@localhost/dbname")?;
 ```rust
 use rusticx::model::SQLModel;
 
-#[derive(Debug, Serialize, Deserialize)]
+[derive(Debug, Serialize, Deserialize)]
 struct User {
     id: Option<i32>,
     name: String,
@@ -77,6 +77,37 @@ impl SQLModel for User {
     // Implement other required methods...
 }
 ```
+
+**Usage with rustic_derive**
+
+``` rust
+use rusticx::model::SQLModel;
+use rusticx_derive::Model;
+
+#[derive(Debug, Serialize, Deserialize, Model)]
+#[model(table = "users")]
+pub struct User {
+    /// The unique identifier for the user, which is the primary key.
+    #[model(primary_key, auto_increment)]
+    pub id: Option<i32>,
+
+    /// The full name of the user.
+    #[model(column = "full_name")] 
+    #[serde(rename = "full_name")]
+    pub name: String,
+
+    /// The email address of the user.
+    pub email: String,
+
+    /// The timestamp when the user was created.
+    pub created_at: NaiveDateTime,
+
+    /// The password of the user.
+    #[model(sql_type = "VARCHAR(100)")]
+    pub password_hash: String,
+}
+```
+
 
 3. **Inserting a Record**:
 

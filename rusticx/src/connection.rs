@@ -14,7 +14,6 @@ use crate::transaction_manager::{run_postgres_transaction, tokio_postgres};
 #[cfg(feature = "postgres")]
 use postgres::types::ToSql;
 use tokio::runtime::Runtime;
-
 #[cfg(feature = "mysql")]
 use mysql::prelude::Queryable;
 
