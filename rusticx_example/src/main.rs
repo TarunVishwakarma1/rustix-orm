@@ -9,7 +9,7 @@ use chrono::NaiveDateTime; // Assuming created_at uses this type
 /// corresponding to the columns in the table. It derives the `Model` trait to
 /// enable database operations such as insertion, updating, and querying.
 #[derive(Debug, Serialize, Deserialize, Model)]
-#[model(table = "users")]
+#[model(table = "demoooo")]
 pub struct User {
     /// The unique identifier for the user, which is the primary key.
     #[model(primary_key, auto_increment)]
@@ -40,7 +40,7 @@ pub struct User {
 fn main() -> Result<(), rusticx::RusticxError> {
     println!("Attempting to connect to database...");
     // Make sure your PostgreSQL container is running and accessible
-    let conn = Connection::new("postgres://postgres:mypass@localhost:5432/postgres")?;
+    let conn = Connection::new("postgresql://postgres:mypass@localhost:5432/postgres")?;
     println!("Connected successfully.");
 
     // --- Demonstrate create_table_sql ---
@@ -183,8 +183,8 @@ fn main() -> Result<(), rusticx::RusticxError> {
      // Use with caution as this is raw SQL
     println!("\n--- Demonstrating find_with_sql ---");
     // Select all from the now empty table
-    let raw_sql_all = User::find_with_sql(&conn, "SELECT * FROM users", &[])?;
-    println!("Found users using raw SQL 'SELECT * FROM users': {:#?}", raw_sql_all); // Should be empty vector
+    let raw_sql_all = User::find_with_sql(&conn, "SELECT * FROM demoooo", &[])?;
+    println!("Found users using raw SQL 'SELECT * FROM demoooo': {:#?}", raw_sql_all); // Should be empty vector
 
     // Insert one user back to demonstrate find_with_sql with parameters
     let mut temp_user = User {
@@ -201,7 +201,7 @@ fn main() -> Result<(), rusticx::RusticxError> {
     let charlie_email = "charlie@example.com".to_string();
     // Note: The SELECT column list in raw SQL should match the struct fields you are deserializing into (User)
     // or you need a different struct for partial results with its own Deserialize impl.
-    let raw_sql_charlie = User::find_with_sql(&conn, "SELECT id, full_name, email, created_at, password_hash FROM users WHERE email = $1", &[&charlie_email])?;
+    let raw_sql_charlie = User::find_with_sql(&conn, "SELECT id, full_name, email, created_at, password_hash FROM demoooo WHERE email = $1", &[&charlie_email])?;
     println!("Found Charlie using raw SQL with parameter: {:#?}", raw_sql_charlie);
 
 

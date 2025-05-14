@@ -58,7 +58,7 @@ use syn::{
 /// # Struct Attributes (`#[model(...)]` on the struct)
 ///
 /// * `#[model(table = "custom_name")]`: Specifies the database table name for this model.
-///     Defaults to the struct name converted to lowercase and pluralized (e.g., `User` -> `users`).
+///     Defaults to the struct name (e.g., `User` -> `User`).
 ///
 /// # Field Attributes (`#[model(...)]` on fields)
 ///
@@ -117,9 +117,9 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     let name = &input.ident;
 
     // Extract the table name from the struct attributes. If not found,
-    // default to the struct name pluralized and lowercased.
+    // default to the struct name as is (without pluralizing or lowercasing).
     let table_name = extract_table_name(&input.attrs)
-        .unwrap_or_else(|| format!("{}", name.to_string().to_lowercase()));
+        .unwrap_or_else(|| name.to_string());
 
     // Ensure the derived item is a struct with named fields.
     // Panic otherwise with a descriptive error message.
@@ -387,8 +387,8 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
         impl rusticx::SQLModel for #name {
             /// Returns the database table name for this model.
             ///
-            /// This is derived from the struct name (pluralized and lowercased)
-            /// or specified using the `#[model(table = "...")]` attribute.
+            /// This is derived from the struct name or specified using 
+            /// the `#[model(table = "...")]` attribute.
             fn table_name() -> String {
                 #table_name.to_string()
             }

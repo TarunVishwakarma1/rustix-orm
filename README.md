@@ -26,7 +26,7 @@ To use Rusticx ORM in your project, add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
 rusticx = { version = "0.1.3",  features = ["postgres"] }
-rusticx_derive = { path = "0.1.1" }
+rusticx_derive = { version = "0.1.1" }
 ```
 
 Make sure to replace `path/to/` with the actual path to the `rusticx` and `rusticx_derive` directories.
@@ -49,7 +49,6 @@ let conn = Connection::new("postgresql://username:password@localhost:5432/databa
 use rusticx_derive::Model;
 
 #[derive(Debug, Model)]
-#[model(table_name = "students")]
 struct Student {
     #[model(primary_key, auto_increment)]
     id: Option<i32>,
@@ -75,7 +74,6 @@ To create a model, define a struct and derive the `Model` trait. Use attributes 
 
 ```rust
 #[derive(Debug, Model)]
-#[model(table_name = "users")]
 struct User {
     #[model(primary_key, auto_increment)]
     id: Option<i32>,
