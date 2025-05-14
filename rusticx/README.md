@@ -29,8 +29,8 @@ You can enable specific database support by adding features in your `Cargo.toml`
 
 ```toml
 [dependencies.rusticx]
-version = "0.1.0"
-features = ["postgres", "mysql", "rusqlite"]
+version = "0.1.3"
+features = ["postgres"] 
 ```
 
 ## Getting Started
@@ -42,7 +42,7 @@ features = ["postgres", "mysql", "rusqlite"]
 ```rust
 use rusticx::{Connection, DatabaseType};
 
-let conn = Connection::new("postgres://user:password@localhost/dbname")?;
+let conn = Connection::new("postgresql://user:password@localhost/dbname")?;
 ```
 
 2. **Defining a Model**:

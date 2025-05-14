@@ -1,6 +1,6 @@
 [package]
 name = "rusticx"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Tarun Vishwakarma <vishwakarmatarun121@icloud.com>"]
 description = "A lightweight, intuitive ORM library for Rust"

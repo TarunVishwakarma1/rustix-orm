@@ -25,8 +25,8 @@ To use Rusticx ORM in your project, add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rusticx = { path = "path/to/rusticx" }
-rusticx_derive = { path = "path/to/rusticx_derive" }
+rusticx = { version = "0.1.3",  features = ["postgres"] }
+rusticx_derive = { path = "0.1.1" }
 ```
 
 Make sure to replace `path/to/` with the actual path to the `rusticx` and `rusticx_derive` directories.
@@ -40,7 +40,7 @@ To get started with Rusticx ORM, follow these steps:
 ```rust
 use rusticx::Connection;
 
-let conn = Connection::new("postgres://username:password@localhost:5432/database_name").unwrap();
+let conn = Connection::new("postgresql://username:password@localhost:5432/database_name").unwrap();
 ```
 
 2. **Define Your Model**: Create a struct that represents your database table.
