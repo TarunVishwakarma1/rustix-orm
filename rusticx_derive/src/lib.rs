@@ -25,8 +25,7 @@ use syn::{
 /// #[model(table = "my_users")] // Optional: specify a custom table name
 /// struct User {
 ///     #[model(primary_key, auto_increment)] // Marks 'id' as primary key with auto-increment
-///     // #[model(primary_key, uuid)] // Alternatively, for UUID primary keys
-///     id: Option<i32>, // Use Option<i32> for auto-increment, Uuid for uuid
+///     id: Option<i32>, // Use Option<i32> for auto-increment
 ///
 ///     name: String, // Maps to a text/varchar column
 ///
