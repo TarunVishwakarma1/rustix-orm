@@ -7,7 +7,7 @@ use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize, Model)]
 // #[model(table = "users")]
 pub struct Users {
-    #[model(primary_key, auto_increment)]
+    #[model(primary_key,auto_increment)]
     pub id: Option<i32>,
 
     #[model(column = "full_name")] 
